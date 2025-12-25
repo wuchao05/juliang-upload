@@ -170,17 +170,17 @@ export class Uploader {
       this.logger.debug(`等待上传面板出现: ${this.uploaderConfig.selectors.uploadPanel}`, { taskId, drama });
       
       const uploadPanel = page.locator(this.uploaderConfig.selectors.uploadPanel).first();
-      await uploadPanel.waitFor({ state: 'visible', timeout: 5000 }); // 最多5秒
+      await uploadPanel.waitFor({ state: 'visible', timeout: 10000 }); // 最多10秒
       
-      // 等待上传面板动画完成和完全准备好
-      this.logger.debug(`上传面板已出现，等待完全加载...`, { taskId, drama });
-      await this.randomDelay(1000, 2000);
+      // 等待上传面板动画完成和完全准备好（增加等待时间）
+      this.logger.debug(`上传面板已出现，等待完全加载和准备就绪...`, { taskId, drama });
+      await this.randomDelay(3000, 4000); // 增加到3-4秒
 
       // 3. 使用文件选择器事件机制上传文件
       this.logger.debug(`正在设置 ${files.length} 个文件（通过文件选择器事件）`, { taskId, drama });
       
-      // 先开始监听文件选择器事件（在点击之前）
-      const fileChooserTimeout = batchIndex === 1 ? 15000 : 30000;
+      // 先开始监听文件选择器事件（在点击之前），增加超时时间
+      const fileChooserTimeout = 60000; // 统一使用60秒超时
       this.logger.debug(`开始监听文件选择器事件（超时: ${fileChooserTimeout}ms）`, { taskId, drama });
       const fileChooserPromise = page.waitForEvent('filechooser', { timeout: fileChooserTimeout });
       
