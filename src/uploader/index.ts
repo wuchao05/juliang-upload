@@ -143,44 +143,56 @@ export class Uploader {
       await this.randomDelay(2000, 3000);
 
       // 5. 等待所有文件上传完成
-      // 通过检查"确定"按钮是否启用（没有 disabled 类名）来判断上传是否完成
-      this.logger.debug('等待文件上传完成（轮询"确定"按钮状态）', { taskId, drama });
+      // 通过检查每个进度条的成功状态来判断上传是否完成
+      this.logger.debug('等待文件上传完成（轮询进度条状态）', { taskId, drama });
       
       const maxWaitTime = 600000; // 10分钟
       const startTime = Date.now();
       let allUploaded = false;
 
-      // 先等待一下，让文件开始上传
-      await this.randomDelay(2000, 3000);
+      // 先等待一下，让文件开始上传和进度条出现
+      await this.randomDelay(3000, 4000);
 
       while (Date.now() - startTime < maxWaitTime) {
         try {
-          // 查找"确定"按钮
-          const confirmButton = page.locator(this.uploaderConfig.selectors.confirmButton).first();
+          // 查找所有进度条元素
+          const progressBars = page.locator('.material-center-v2-oc-upload-table-name-progress');
+          const progressCount = await progressBars.count();
           
-          // 等待按钮出现（可能需要一点时间）
-          const buttonExists = await confirmButton.count();
-          
-          if (buttonExists === 0) {
-            this.logger.debug('确定按钮未找到，继续等待...', { taskId, drama });
+          if (progressCount === 0) {
+            this.logger.debug('进度条未找到，继续等待...', { taskId, drama });
             await this.randomDelay(2000, 3000);
             continue;
           }
 
-          // 检查按钮是否有 disabled 类名
-          const buttonClasses = await confirmButton.getAttribute('class');
-          const isDisabled = buttonClasses?.includes('material-center-v2-button--disabled') || false;
-          
-          this.logger.debug(`确定按钮状态: ${isDisabled ? '禁用中（上传未完成）' : '已启用（上传完成）'}`, { taskId, drama });
+          this.logger.debug(`找到 ${progressCount} 个进度条（期望 ${files.length} 个）`, { taskId, drama });
 
-          if (!isDisabled) {
-            // 按钮已启用，说明上传完成
+          // 检查每个进度条是否有成功标识（同级元素）
+          let successCount = 0;
+          
+          for (let i = 0; i < progressCount; i++) {
+            const progressBar = progressBars.nth(i);
+            
+            // 获取进度条的父元素，然后在父元素中查找 success 类（同级元素）
+            const parent = progressBar.locator('..');
+            const successElement = parent.locator('.material-center-v2-oc-upload-table-name-progress-success');
+            const hasSuccess = await successElement.count() > 0;
+            
+            if (hasSuccess) {
+              successCount++;
+            }
+          }
+
+          this.logger.debug(`上传进度: ${successCount}/${progressCount} 个素材已完成`, { taskId, drama });
+
+          // 检查是否所有素材都上传完成
+          if (successCount === progressCount && progressCount >= files.length) {
             allUploaded = true;
-            this.logger.debug('所有素材上传完成（确定按钮已启用）', { taskId, drama });
+            this.logger.debug('所有素材上传完成（所有进度条显示成功状态）', { taskId, drama });
             break;
           }
 
-          // 按钮还是禁用状态，继续等待
+          // 继续等待
           await this.randomDelay(3000, 4000);
         } catch (error) {
           // 继续等待
