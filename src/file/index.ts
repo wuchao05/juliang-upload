@@ -1,7 +1,7 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import { FileScanResult } from '../types';
-import { getLogger } from '../logger';
+import * as fs from "fs";
+import * as path from "path";
+import { FileScanResult } from "../types";
+import { getLogger } from "../logger";
 
 /**
  * 文件处理类
@@ -22,17 +22,21 @@ export class FileManager {
     try {
       // 支持多种日期格式
       const dateObj = new Date(date);
-      
+
       if (isNaN(dateObj.getTime())) {
         throw new Error(`无效的日期格式: ${date}`);
       }
 
-      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-      const day = String(dateObj.getDate()).padStart(2, '0');
+      const month = String(dateObj.getMonth() + 1).padStart(2, "0");
+      const day = String(dateObj.getDate()).padStart(2, "0");
 
-      return `${month}.${day} 导出`;
+      return `${month}.${day}导出`;
     } catch (error) {
-      this.logger.error(`日期转换失败: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(
+        `日期转换失败: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
       throw error;
     }
   }
@@ -68,26 +72,30 @@ export class FileManager {
 
       const files = fs.readdirSync(dirPath);
       const mp4Files = files
-        .filter(file => file.toLowerCase().endsWith('.mp4'))
-        .map(file => path.join(dirPath, file))
+        .filter((file) => file.toLowerCase().endsWith(".mp4"))
+        .map((file) => path.join(dirPath, file))
         .sort((a, b) => {
           // 自然排序（支持 1.mp4, 2.mp4, ..., 10.mp4 等）
-          const aName = path.basename(a, '.mp4');
-          const bName = path.basename(b, '.mp4');
-          
+          const aName = path.basename(a, ".mp4");
+          const bName = path.basename(b, ".mp4");
+
           const aNum = parseInt(aName);
           const bNum = parseInt(bName);
-          
+
           if (!isNaN(aNum) && !isNaN(bNum)) {
             return aNum - bNum;
           }
-          
+
           return aName.localeCompare(bName);
         });
 
       return mp4Files;
     } catch (error) {
-      this.logger.error(`扫描 MP4 文件失败: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(
+        `扫描 MP4 文件失败: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
       return [];
     }
   }
@@ -109,7 +117,7 @@ export class FileManager {
           exists: false,
           path: dramaPath,
           mp4Files: [],
-          error: `日期目录不存在: ${datePath}`
+          error: `日期目录不存在: ${datePath}`,
         };
       }
 
@@ -119,7 +127,7 @@ export class FileManager {
           exists: false,
           path: dramaPath,
           mp4Files: [],
-          error: `剧目录不存在: ${dramaPath}`
+          error: `剧目录不存在: ${dramaPath}`,
         };
       }
 
@@ -131,24 +139,24 @@ export class FileManager {
           exists: true,
           path: dramaPath,
           mp4Files: [],
-          error: `目录下没有 MP4 文件: ${dramaPath}`
+          error: `目录下没有 MP4 文件: ${dramaPath}`,
         };
       }
 
       return {
         exists: true,
         path: dramaPath,
-        mp4Files
+        mp4Files,
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       this.logger.error(`扫描剧目录失败: ${errorMsg}`);
-      
+
       return {
         exists: false,
-        path: '',
+        path: "",
         mp4Files: [],
-        error: errorMsg
+        error: errorMsg,
       };
     }
   }
@@ -156,7 +164,10 @@ export class FileManager {
   /**
    * 验证文件是否可读
    */
-  public validateFiles(files: string[]): { valid: string[]; invalid: string[] } {
+  public validateFiles(files: string[]): {
+    valid: string[];
+    invalid: string[];
+  } {
     const valid: string[] = [];
     const invalid: string[] = [];
 
@@ -199,4 +210,3 @@ export class FileManager {
 export function createFileManager(rootDir: string): FileManager {
   return new FileManager(rootDir);
 }
-
