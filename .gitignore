@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+pnpm-lock.yaml
+
+# Build output
+dist/
+
+# Logs
+logs/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Config with sensitive data
+config.json
+
+# Playwright
+playwright-state/
+.playwright/
+
+# Test
+test-results/
+

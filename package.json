@@ -1,0 +1,36 @@
+{
+  "name": "juliang-upload",
+  "version": "1.0.0",
+  "description": "巨量素材自动上传系统",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "pnpm run build && node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "automation",
+    "upload",
+    "playwright",
+    "feishu"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@playwright/browser-chromium": "^1.40.0",
+    "playwright": "^1.40.0",
+    "axios": "^1.6.2",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.5",
+    "@types/uuid": "^9.0.7",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
+
