@@ -211,7 +211,13 @@ export class TaskQueue {
       const uploadUrl = douyinManager.buildUploadUrl(task.account);
       this.logger.debug(`上传 URL: ${uploadUrl}`, { taskId: task.id, drama: task.drama });
 
-      // 4. 执行上传
+      // 4. 更新飞书状态为"上传中"
+      const updateToUploading = await feishuClient.updateRecordStatus(task.recordId, '上传中', task.drama);
+      if (!updateToUploading) {
+        this.logger.warn(`更新飞书状态为"上传中"失败，但继续上传`, { taskId: task.id, drama: task.drama });
+      }
+
+      // 5. 执行上传
       const uploadResult = await uploader.uploadFiles(
         uploadUrl,
         valid,
@@ -232,8 +238,8 @@ export class TaskQueue {
         uploadResult.uploadedBatches
       );
 
-      // 5. 更新飞书状态
-      const updateSuccess = await feishuClient.updateRecordStatus(task.recordId, task.drama);
+      // 6. 更新飞书状态为"待搭建"
+      const updateSuccess = await feishuClient.updateRecordStatus(task.recordId, '待搭建', task.drama);
 
       if (updateSuccess) {
         this.updateTaskStatus(task, TaskStatus.COMPLETED);

@@ -229,25 +229,26 @@ export class FeishuClient {
   }
 
   /**
-   * 更新记录状态为"待搭建"
+   * 更新记录状态
    */
   public async updateRecordStatus(
     recordId: string,
+    newStatus: string,
     drama: string
   ): Promise<boolean> {
     try {
-      this.logger.debug(`正在更新记录 ${recordId} 的状态`, { drama });
+      this.logger.debug(`正在更新记录 ${recordId} 的状态为"${newStatus}"`, { drama });
 
       // 使用官方推荐的 PATCH 方法更新记录
       const url = `/apps/${this.config.app_token}/tables/${this.config.table_id}/records/${recordId}`;
 
       await this.request("patch", url, {
         fields: {
-          [this.config.fields.status]: "待搭建",
+          [this.config.fields.status]: newStatus,
         },
       });
 
-      this.logger.info(`记录 ${recordId} 状态更新成功: 待上传 → 待搭建`, {
+      this.logger.info(`记录 ${recordId} 状态更新成功: ${newStatus}`, {
         drama,
       });
 
@@ -266,9 +267,9 @@ export class FeishuClient {
   /**
    * 批量更新记录状态（可选实现）
    */
-  public async batchUpdateStatus(recordIds: string[]): Promise<void> {
+  public async batchUpdateStatus(recordIds: string[], newStatus: string): Promise<void> {
     for (const recordId of recordIds) {
-      await this.updateRecordStatus(recordId, "batch");
+      await this.updateRecordStatus(recordId, newStatus, "batch");
     }
   }
 }
