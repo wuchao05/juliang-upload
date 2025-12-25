@@ -20,7 +20,7 @@ logs/
 Thumbs.db
 
 # Config with sensitive data
-config.json
+# config.json
 
 # Playwright
 playwright-state/

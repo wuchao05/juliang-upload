@@ -1,0 +1,44 @@
+{
+  "feishu": {
+    "app_id": "cli_a870f7611b7b1013",
+    "app_secret": "NTwHbZG8rpOQyMEnXGPV6cNQ84KEqE8z",
+    "app_token": "WdWvbGUXXaokk8sAS94c00IZnsf",
+    "table_id": "tblDOyi2Lzs80sv0",
+    "base_url": "https://open.feishu.cn/open-apis/bitable/v1",
+    "fields": {
+      "status": "当前状态",
+      "account": "账户",
+      "drama": "剧名",
+      "date": "日期"
+    }
+  },
+  "local": {
+    "rootDir": "D:\\短剧剪辑"
+  },
+  "douyin": {
+    "baseUploadUrl": "https://ad.oceanengine.com/material_center/management/video?aadvid={accountId}#source=ad_navigator"
+  },
+  "uploader": {
+    "batchSize": 10,
+    "batchDelayMin": 2000,
+    "batchDelayMax": 5000,
+    "selectors": {
+      "uploadButton": "button:has(span:text('上传视频'))",
+      "uploadPanel": ".material-center-v2-oc-create-upload-select-wrapper",
+      "fileInput": "input[type='file']",
+      "tableBody": ".material-center-v2-tbody",
+      "operationItem": ".material-center-v2-oc-promotion-operation-action-item",
+      "cancelUploadText": "取消上传",
+      "confirmButtonContainer": ".material-center-v2-oc-create-material-submit-bar-btn-group",
+      "confirmButton": ".material-center-v2-oc-create-material-submit-bar-btn-group button:has-text('确定')"
+    }
+  },
+  "scheduler": {
+    "fetchIntervalMinutes": 30
+  },
+  "playwright": {
+    "headless": false,
+    "slowMo": 500,
+    "userDataDir": "./playwright-state"
+  }
+}
