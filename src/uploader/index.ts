@@ -93,9 +93,56 @@ export class Uploader {
   }
 
   /**
-   * 上传单批文件
+   * 上传单批文件（支持重试）
    */
   private async uploadBatch(
+    page: Page, 
+    files: string[], 
+    batchIndex: number, 
+    totalBatches: number,
+    taskId: string,
+    drama: string
+  ): Promise<boolean> {
+    const maxRetries = 3; // 最多重试3次
+    
+    for (let retry = 0; retry < maxRetries; retry++) {
+      try {
+        if (retry > 0) {
+          this.logger.info(`第 ${batchIndex}/${totalBatches} 批重试第 ${retry} 次`, { taskId, drama });
+        }
+        
+        const result = await this.uploadBatchInternal(page, files, batchIndex, totalBatches, taskId, drama);
+        
+        if (result) {
+          return true;
+        }
+        
+        // 如果返回 false，说明需要重试
+        if (retry < maxRetries - 1) {
+          this.logger.warn(`第 ${batchIndex}/${totalBatches} 批上传失败，准备重试...`, { taskId, drama });
+          await this.randomDelay(3000, 5000);
+        }
+      } catch (error) {
+        this.logger.error(
+          `上传第 ${batchIndex}/${totalBatches} 批失败（第 ${retry + 1} 次尝试）: ${error instanceof Error ? error.message : String(error)}`,
+          { taskId, drama }
+        );
+        
+        if (retry < maxRetries - 1) {
+          await this.randomDelay(3000, 5000);
+        } else {
+          throw error;
+        }
+      }
+    }
+    
+    return false;
+  }
+
+  /**
+   * 上传单批文件（内部实现）
+   */
+  private async uploadBatchInternal(
     page: Page, 
     files: string[], 
     batchIndex: number, 
@@ -195,13 +242,30 @@ export class Uploader {
 
           // 判断上传完成的条件：所有找到的进度条都显示成功状态
           if (successCount === progressCount && successCount > 0) {
-            allUploaded = true;
             if (progressCount < files.length) {
-              this.logger.warn(`进度条数量少于预期（${progressCount}/${files.length}），但已全部完成，继续执行`, { taskId, drama });
+              // 进度条数量少于预期，说明有文件上传失败，需要重试
+              this.logger.error(`进度条数量少于预期（${progressCount}/${files.length}），有文件上传失败，点击取消按钮重试`, { taskId, drama });
+              
+              // 点击取消按钮
+              try {
+                const cancelButton = page.locator(this.uploaderConfig.selectors.cancelButton).first();
+                await cancelButton.waitFor({ state: 'visible', timeout: 5000 });
+                await this.randomDelay(500, 1000);
+                await cancelButton.click();
+                this.logger.debug('取消按钮点击成功，准备重试', { taskId, drama });
+                await this.randomDelay(2000, 3000);
+              } catch (cancelError) {
+                this.logger.error(`点击取消按钮失败: ${cancelError instanceof Error ? cancelError.message : String(cancelError)}`, { taskId, drama });
+              }
+              
+              // 返回 false 触发重试
+              return false;
             } else {
+              // 进度条数量符合预期，全部上传成功
+              allUploaded = true;
               this.logger.debug('所有素材上传完成（所有进度条显示成功状态）', { taskId, drama });
+              break;
             }
-            break;
           }
 
           // 继续等待（30秒轮询间隔）

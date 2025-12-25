@@ -30,7 +30,8 @@
       "operationItem": ".material-center-v2-oc-promotion-operation-action-item",
       "cancelUploadText": "取消上传",
       "confirmButtonContainer": ".material-center-v2-oc-create-material-submit-bar-btn-group",
-      "confirmButton": ".material-center-v2-oc-create-material-submit-bar-btn-group button:has-text('确定')"
+      "confirmButton": ".material-center-v2-oc-create-material-submit-bar-btn-group button:has-text('确定')",
+      "cancelButton": ".material-center-v2-oc-create-material-submit-bar-btn-group button:has-text('取消')"
     }
   },
   "scheduler": {

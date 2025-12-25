@@ -56,6 +56,7 @@ export interface UploaderSelectors {
   cancelUploadText: string;
   confirmButtonContainer: string;
   confirmButton: string;
+  cancelButton: string;
 }
 
 /**
