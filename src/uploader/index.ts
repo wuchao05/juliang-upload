@@ -119,21 +119,18 @@ export class Uploader {
       this.logger.debug('上传按钮点击成功，侧边上传面板应已打开', { taskId, drama });
       await this.randomDelay(1000, 2000);
 
-      // 2. 等待上传面板出现并查找文件选择区域
+      // 2. 等待上传面板出现
       this.logger.debug(`等待上传面板出现: ${this.uploaderConfig.selectors.uploadPanel}`, { taskId, drama });
       
       const uploadPanel = page.locator(this.uploaderConfig.selectors.uploadPanel).first();
       await uploadPanel.waitFor({ state: 'visible', timeout: 10000 });
       await this.randomDelay(500, 1000);
 
-      // 3. 查找文件输入元素（通常在上传面板内部）
-      this.logger.debug('查找文件输入元素', { taskId, drama });
+      // 3. 直接在上传面板上设置文件（Playwright 会自动找到内部的 input[type='file']）
+      this.logger.debug(`正在为上传面板设置 ${files.length} 个文件`, { taskId, drama });
       
-      const fileInput = page.locator(this.uploaderConfig.selectors.fileInput).first();
-      await fileInput.waitFor({ state: 'attached', timeout: 10000 });
-
-      // 4. 设置文件
-      this.logger.debug(`正在设置 ${files.length} 个文件`, { taskId, drama });
+      // 查找上传面板内部的 input[type='file'] 并设置文件
+      const fileInput = uploadPanel.locator(this.uploaderConfig.selectors.fileInput).first();
       await fileInput.setInputFiles(files);
       
       this.logger.debug('文件设置成功，开始上传', { taskId, drama });
