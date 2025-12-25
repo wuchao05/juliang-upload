@@ -239,10 +239,10 @@ export class FeishuClient {
     try {
       this.logger.debug(`正在更新记录 ${recordId} 的状态为"${newStatus}"`, { drama });
 
-      // 使用官方推荐的 PATCH 方法更新记录
+      // 使用 POST 方法更新记录（飞书要求）
       const url = `/apps/${this.config.app_token}/tables/${this.config.table_id}/records/${recordId}`;
 
-      await this.request("patch", url, {
+      await this.request("post", url, {
         fields: {
           [this.config.fields.status]: newStatus,
         },
