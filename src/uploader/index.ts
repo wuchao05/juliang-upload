@@ -143,70 +143,44 @@ export class Uploader {
       await this.randomDelay(2000, 3000);
 
       // 5. 等待所有文件上传完成
-      // 通过检查 .material-center-v2-oc-promotion-operation-action-item 中是否没有"取消上传"文案
-      this.logger.debug('等待文件上传完成（轮询"取消上传"状态）', { taskId, drama });
+      // 通过检查"确定"按钮是否启用（没有 disabled 类名）来判断上传是否完成
+      this.logger.debug('等待文件上传完成（轮询"确定"按钮状态）', { taskId, drama });
       
       const maxWaitTime = 600000; // 10分钟
       const startTime = Date.now();
       let allUploaded = false;
 
+      // 先等待一下，让文件开始上传
+      await this.randomDelay(2000, 3000);
+
       while (Date.now() - startTime < maxWaitTime) {
         try {
-          // 查找表格中的所有操作项
-          const tableBody = page.locator(this.uploaderConfig.selectors.tableBody).first();
+          // 查找"确定"按钮
+          const confirmButton = page.locator(this.uploaderConfig.selectors.confirmButton).first();
           
-          // 检查 tableBody 是否存在
-          const tableBodyExists = await tableBody.count();
-          this.logger.debug(`找到 ${tableBodyExists} 个表格主体元素`, { taskId, drama });
+          // 等待按钮出现（可能需要一点时间）
+          const buttonExists = await confirmButton.count();
           
-          if (tableBodyExists === 0) {
-            this.logger.debug('表格主体未找到，继续等待...', { taskId, drama });
-            await this.randomDelay(2000, 3000);
-            continue;
-          }
-          
-          const operationItems = tableBody.locator(this.uploaderConfig.selectors.operationItem);
-          const itemCount = await operationItems.count();
-          
-          this.logger.debug(`找到 ${itemCount} 个操作项元素（期望 ${files.length} 个）`, { taskId, drama });
-
-          if (itemCount === 0) {
-            // 还没有项目出现，继续等待
-            this.logger.debug('等待素材项出现在列表中...', { taskId, drama });
+          if (buttonExists === 0) {
+            this.logger.debug('确定按钮未找到，继续等待...', { taskId, drama });
             await this.randomDelay(2000, 3000);
             continue;
           }
 
-          // 检查是否还有"取消上传"的项
-          let hasUploading = false;
-          let cancelUploadCount = 0;
+          // 检查按钮是否有 disabled 类名
+          const buttonClasses = await confirmButton.getAttribute('class');
+          const isDisabled = buttonClasses?.includes('material-center-v2-button--disabled') || false;
           
-          for (let i = 0; i < itemCount; i++) {
-            const item = operationItems.nth(i);
-            const text = await item.textContent();
-            
-            // 输出每个操作项的文本（仅输出前50字符）
-            this.logger.debug(`操作项 ${i + 1}/${itemCount} 文本: "${text?.substring(0, 50)}"`, { taskId, drama });
-            
-            if (text && text.includes(this.uploaderConfig.selectors.cancelUploadText)) {
-              hasUploading = true;
-              cancelUploadCount++;
-            }
-          }
+          this.logger.debug(`确定按钮状态: ${isDisabled ? '禁用中（上传未完成）' : '已启用（上传完成）'}`, { taskId, drama });
 
-          this.logger.debug(`检测结果: ${cancelUploadCount} 个"取消上传"，${itemCount - cancelUploadCount} 个已完成`, { taskId, drama });
-
-          if (!hasUploading && itemCount >= files.length) {
-            // 没有"取消上传"且素材数量符合，说明全部上传完成
+          if (!isDisabled) {
+            // 按钮已启用，说明上传完成
             allUploaded = true;
-            this.logger.debug('所有素材上传完成（不再有"取消上传"操作）', { taskId, drama });
+            this.logger.debug('所有素材上传完成（确定按钮已启用）', { taskId, drama });
             break;
           }
 
-          if (hasUploading) {
-            this.logger.debug(`仍有 ${cancelUploadCount} 个素材正在上传中（共 ${itemCount} 项）`, { taskId, drama });
-          }
-
+          // 按钮还是禁用状态，继续等待
           await this.randomDelay(3000, 4000);
         } catch (error) {
           // 继续等待
