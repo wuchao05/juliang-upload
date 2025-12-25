@@ -107,36 +107,44 @@ export class Uploader {
       this.logger.uploadBatch(taskId, drama, batchIndex, totalBatches, files.length);
 
       // 1. 查找并点击上传按钮（button 包含 span 文本"上传视频"）
-      this.logger.debug('查找上传按钮: button > span:text("上传视频")', { taskId, drama });
+      this.logger.debug(`第 ${batchIndex}/${totalBatches} 批：查找上传按钮`, { taskId, drama });
       
       const uploadButton = page.locator(this.uploaderConfig.selectors.uploadButton).first();
       
-      // 等待按钮可见和可点击
-      await uploadButton.waitFor({ state: 'visible', timeout: 10000 });
+      // 等待按钮可见和可点击（对于非第一批，可能需要更长时间）
+      const waitTimeout = batchIndex === 1 ? 10000 : 20000;
+      await uploadButton.waitFor({ state: 'visible', timeout: waitTimeout });
       await this.randomDelay(500, 1000);
       await uploadButton.click();
       
-      this.logger.debug('上传按钮点击成功，侧边上传面板应已打开', { taskId, drama });
-      await this.randomDelay(1000, 2000);
+      this.logger.debug('上传按钮点击成功，等待侧边上传面板打开', { taskId, drama });
 
-      // 2. 等待上传面板出现
+      // 2. 等待上传面板完全加载
       this.logger.debug(`等待上传面板出现: ${this.uploaderConfig.selectors.uploadPanel}`, { taskId, drama });
       
       const uploadPanel = page.locator(this.uploaderConfig.selectors.uploadPanel).first();
-      await uploadPanel.waitFor({ state: 'visible', timeout: 10000 });
-      await this.randomDelay(500, 1000);
+      await uploadPanel.waitFor({ state: 'visible', timeout: 5000 }); // 最多5秒
+      
+      // 等待上传面板动画完成和完全准备好
+      this.logger.debug(`上传面板已出现，等待完全加载...`, { taskId, drama });
+      await this.randomDelay(1000, 2000);
 
       // 3. 使用文件选择器事件机制上传文件
       this.logger.debug(`正在设置 ${files.length} 个文件（通过文件选择器事件）`, { taskId, drama });
       
-      // 监听文件选择器弹出事件
-      const fileChooserPromise = page.waitForEvent('filechooser', { timeout: 10000 });
+      // 先开始监听文件选择器事件（在点击之前）
+      const fileChooserTimeout = batchIndex === 1 ? 15000 : 30000;
+      this.logger.debug(`开始监听文件选择器事件（超时: ${fileChooserTimeout}ms）`, { taskId, drama });
+      const fileChooserPromise = page.waitForEvent('filechooser', { timeout: fileChooserTimeout });
       
       // 点击上传面板触发文件选择对话框
+      this.logger.debug(`点击上传面板触发文件选择`, { taskId, drama });
       await uploadPanel.click();
       
       // 等待文件选择器出现并设置文件
+      this.logger.debug(`等待文件选择器弹出...`, { taskId, drama });
       const fileChooser = await fileChooserPromise;
+      this.logger.debug(`文件选择器已弹出，设置 ${files.length} 个文件`, { taskId, drama });
       await fileChooser.setFiles(files);
       
       this.logger.debug('文件设置成功，开始上传', { taskId, drama });
@@ -222,11 +230,17 @@ export class Uploader {
       
       this.logger.debug('确定按钮点击成功', { taskId, drama });
 
-      // 批次间延迟
-      await this.randomDelay(
-        this.uploaderConfig.batchDelayMin,
-        this.uploaderConfig.batchDelayMax
-      );
+      // 批次间延迟（点击确定后页面需要时间准备下一批上传）
+      if (batchIndex < totalBatches) {
+        this.logger.debug(`等待页面准备下一批上传...`, { taskId, drama });
+        await this.randomDelay(5000, 8000); // 增加到5-8秒，让页面有充足时间刷新
+      } else {
+        // 最后一批，使用配置的延迟
+        await this.randomDelay(
+          this.uploaderConfig.batchDelayMin,
+          this.uploaderConfig.batchDelayMax
+        );
+      }
 
       return true;
     } catch (error) {
