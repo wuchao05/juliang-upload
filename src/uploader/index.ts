@@ -154,8 +154,21 @@ export class Uploader {
         try {
           // 查找表格中的所有操作项
           const tableBody = page.locator(this.uploaderConfig.selectors.tableBody).first();
+          
+          // 检查 tableBody 是否存在
+          const tableBodyExists = await tableBody.count();
+          this.logger.debug(`找到 ${tableBodyExists} 个表格主体元素`, { taskId, drama });
+          
+          if (tableBodyExists === 0) {
+            this.logger.debug('表格主体未找到，继续等待...', { taskId, drama });
+            await this.randomDelay(2000, 3000);
+            continue;
+          }
+          
           const operationItems = tableBody.locator(this.uploaderConfig.selectors.operationItem);
           const itemCount = await operationItems.count();
+          
+          this.logger.debug(`找到 ${itemCount} 个操作项元素（期望 ${files.length} 个）`, { taskId, drama });
 
           if (itemCount === 0) {
             // 还没有项目出现，继续等待
@@ -166,15 +179,22 @@ export class Uploader {
 
           // 检查是否还有"取消上传"的项
           let hasUploading = false;
+          let cancelUploadCount = 0;
+          
           for (let i = 0; i < itemCount; i++) {
             const item = operationItems.nth(i);
             const text = await item.textContent();
             
+            // 输出每个操作项的文本（仅输出前50字符）
+            this.logger.debug(`操作项 ${i + 1}/${itemCount} 文本: "${text?.substring(0, 50)}"`, { taskId, drama });
+            
             if (text && text.includes(this.uploaderConfig.selectors.cancelUploadText)) {
               hasUploading = true;
-              break;
+              cancelUploadCount++;
             }
           }
+
+          this.logger.debug(`检测结果: ${cancelUploadCount} 个"取消上传"，${itemCount - cancelUploadCount} 个已完成`, { taskId, drama });
 
           if (!hasUploading && itemCount >= files.length) {
             // 没有"取消上传"且素材数量符合，说明全部上传完成
@@ -184,13 +204,13 @@ export class Uploader {
           }
 
           if (hasUploading) {
-            this.logger.debug(`仍有素材正在上传中（共 ${itemCount} 项）`, { taskId, drama });
+            this.logger.debug(`仍有 ${cancelUploadCount} 个素材正在上传中（共 ${itemCount} 项）`, { taskId, drama });
           }
 
           await this.randomDelay(3000, 4000);
         } catch (error) {
           // 继续等待
-          this.logger.debug('检查上传状态时出错，继续重试', { taskId, drama });
+          this.logger.debug(`检查上传状态时出错: ${error instanceof Error ? error.message : String(error)}`, { taskId, drama });
           await this.randomDelay(2000, 3000);
         }
       }
