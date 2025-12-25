@@ -1,4 +1,4 @@
-import { chromium, Browser, BrowserContext, Page } from 'playwright';
+import { chromium, BrowserContext, Page } from 'playwright';
 import { UploaderConfig, PlaywrightConfig, UploadResult } from '../types';
 import { getLogger } from '../logger';
 
@@ -8,8 +8,8 @@ import { getLogger } from '../logger';
 export class Uploader {
   private uploaderConfig: UploaderConfig;
   private playwrightConfig: PlaywrightConfig;
-  private browser: Browser | null = null;
   private context: BrowserContext | null = null;
+  private page: Page | null = null; // 复用的单个页面实例
   private logger = getLogger();
 
   constructor(uploaderConfig: UploaderConfig, playwrightConfig: PlaywrightConfig) {
@@ -22,24 +22,29 @@ export class Uploader {
    */
   public async initialize(): Promise<void> {
     try {
-      this.logger.info('正在初始化 Playwright 浏览器');
+      this.logger.info('正在初始化 Playwright 浏览器（持久化模式）');
 
-    this.browser = await chromium.launch({
-      headless: this.playwrightConfig.headless,
-      slowMo: this.playwrightConfig.slowMo,
-      // 添加启动参数，确保窗口显示（Mac 兼容）
-      args: [
-        '--start-maximized',
-      ]
-    });
+      // 使用 launchPersistentContext 实现真正的持久化
+      // 这样会保存 cookies、localStorage、session 等所有浏览器数据
+      this.context = await chromium.launchPersistentContext(
+        this.playwrightConfig.userDataDir,
+        {
+          headless: this.playwrightConfig.headless,
+          slowMo: this.playwrightConfig.slowMo,
+          viewport: null, // 支持最大化
+          userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          args: [
+            '--start-maximized',
+          ]
+        }
+      );
 
-    // 使用持久化上下文（保存登录状态）
-    this.context = await this.browser.newContext({
-      viewport: null, // 设为 null 以支持 --start-maximized
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-    });
+      // 创建一个固定的页面实例，所有任务复用
+      this.page = await this.context.newPage();
+      await this.page.bringToFront(); // 强制显示窗口
 
-      this.logger.info('Playwright 浏览器初始化成功');
+      this.logger.info(`Playwright 浏览器初始化成功，数据目录: ${this.playwrightConfig.userDataDir}`);
+      this.logger.info('已创建固定标签页，所有上传任务将复用此标签页');
     } catch (error) {
       this.logger.error(`初始化浏览器失败: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
@@ -51,17 +56,17 @@ export class Uploader {
    */
   public async close(): Promise<void> {
     try {
+      if (this.page) {
+        await this.page.close();
+        this.page = null;
+      }
+
       if (this.context) {
         await this.context.close();
         this.context = null;
       }
 
-      if (this.browser) {
-        await this.browser.close();
-        this.browser = null;
-      }
-
-      this.logger.info('浏览器已关闭');
+      this.logger.info('浏览器已关闭（登录状态已保存）');
     } catch (error) {
       this.logger.error(`关闭浏览器失败: ${error instanceof Error ? error.message : String(error)}`);
     }
@@ -229,25 +234,17 @@ export class Uploader {
     taskId: string,
     drama: string
   ): Promise<UploadResult> {
-    if (!this.context) {
+    if (!this.page) {
       throw new Error('浏览器未初始化，请先调用 initialize()');
     }
-
-    let page: Page | null = null;
 
     try {
       this.logger.info(`开始上传任务，共 ${files.length} 个文件`, { taskId, drama });
 
-      // 创建新页面
-      page = await this.context.newPage();
-      
-      // 强制显示窗口在最前面（Mac 兼容）
-      await page.bringToFront();
-
-      // 导航到上传页面
-      this.logger.debug(`正在打开页面: ${url}`, { taskId, drama });
-      await page.goto(url, { waitUntil: 'networkidle', timeout: 60000 });
-      await this.waitForPageReady(page);
+      // 复用固定的页面实例，只需要导航到新 URL
+      this.logger.debug(`正在导航到上传页面: ${url}`, { taskId, drama });
+      await this.page.goto(url, { waitUntil: 'networkidle', timeout: 60000 });
+      await this.waitForPageReady(this.page);
 
       this.logger.debug('页面加载完成', { taskId, drama });
 
@@ -265,7 +262,7 @@ export class Uploader {
       for (let i = 0; i < batches.length; i++) {
         const batch = batches[i];
         const success = await this.uploadBatch(
-          page,
+          this.page,
           batch,
           i + 1,
           totalBatches,
@@ -285,8 +282,7 @@ export class Uploader {
 
       this.logger.info(`所有文件上传成功`, { taskId, drama });
 
-      // 关闭页面
-      await page.close();
+      // 不关闭页面，下一个任务继续复用
 
       return {
         success: true,
@@ -297,9 +293,9 @@ export class Uploader {
       const errorMsg = error instanceof Error ? error.message : String(error);
       this.logger.error(`上传任务失败: ${errorMsg}`, { taskId, drama });
 
-      // 发生错误时保留页面供人工检查
-      if (page && !this.playwrightConfig.headless) {
-        this.logger.warn('页面保留供人工检查', { taskId, drama });
+      // 错误时也不关闭页面，保留供人工检查，且下个任务继续使用
+      if (!this.playwrightConfig.headless) {
+        this.logger.warn('页面保留供人工检查，程序将继续处理下一个任务', { taskId, drama });
       }
 
       return {
@@ -315,21 +311,18 @@ export class Uploader {
    * 检查登录状态（可选实现）
    */
   public async checkLoginStatus(url: string): Promise<boolean> {
-    if (!this.context) {
+    if (!this.page) {
       return false;
     }
 
     try {
-      const page = await this.context.newPage();
-      await page.bringToFront(); // 强制显示窗口
-      await page.goto(url, { timeout: 30000 });
+      // 复用固定页面
+      await this.page.goto(url, { timeout: 30000 });
       await this.randomDelay(2000, 3000);
 
       // 检查是否有登录相关的元素
       // 这里需要根据实际页面调整
-      const isLoggedIn = !await page.locator('text=登录').isVisible().catch(() => false);
-
-      await page.close();
+      const isLoggedIn = !await this.page.locator('text=登录').isVisible().catch(() => false);
 
       return isLoggedIn;
     } catch (error) {
