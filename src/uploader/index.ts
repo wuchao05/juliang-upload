@@ -126,12 +126,18 @@ export class Uploader {
       await uploadPanel.waitFor({ state: 'visible', timeout: 10000 });
       await this.randomDelay(500, 1000);
 
-      // 3. 直接在上传面板上设置文件（Playwright 会自动找到内部的 input[type='file']）
-      this.logger.debug(`正在为上传面板设置 ${files.length} 个文件`, { taskId, drama });
+      // 3. 使用文件选择器事件机制上传文件
+      this.logger.debug(`正在设置 ${files.length} 个文件（通过文件选择器事件）`, { taskId, drama });
       
-      // 查找上传面板内部的 input[type='file'] 并设置文件
-      const fileInput = uploadPanel.locator(this.uploaderConfig.selectors.fileInput).first();
-      await fileInput.setInputFiles(files);
+      // 监听文件选择器弹出事件
+      const fileChooserPromise = page.waitForEvent('filechooser', { timeout: 10000 });
+      
+      // 点击上传面板触发文件选择对话框
+      await uploadPanel.click();
+      
+      // 等待文件选择器出现并设置文件
+      const fileChooser = await fileChooserPromise;
+      await fileChooser.setFiles(files);
       
       this.logger.debug('文件设置成功，开始上传', { taskId, drama });
       await this.randomDelay(2000, 3000);
