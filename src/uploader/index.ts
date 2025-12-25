@@ -144,14 +144,14 @@ export class Uploader {
 
       // 5. 等待所有文件上传完成
       // 通过检查每个进度条的成功状态来判断上传是否完成
-      this.logger.debug('等待文件上传完成（轮询进度条状态）', { taskId, drama });
+      this.logger.debug('等待文件上传完成（每1分钟轮询一次进度条状态）', { taskId, drama });
       
-      const maxWaitTime = 600000; // 10分钟
+      const maxWaitTime = 1200000; // 20分钟
       const startTime = Date.now();
       let allUploaded = false;
 
       // 先等待一下，让文件开始上传和进度条出现
-      await this.randomDelay(3000, 4000);
+      await this.randomDelay(5000, 6000);
 
       while (Date.now() - startTime < maxWaitTime) {
         try {
@@ -161,7 +161,7 @@ export class Uploader {
           
           if (progressCount === 0) {
             this.logger.debug('进度条未找到，继续等待...', { taskId, drama });
-            await this.randomDelay(2000, 3000);
+            await this.randomDelay(5000, 6000);
             continue;
           }
 
@@ -192,17 +192,17 @@ export class Uploader {
             break;
           }
 
-          // 继续等待
-          await this.randomDelay(3000, 4000);
+          // 继续等待（1分钟轮询间隔）
+          await page.waitForTimeout(60000);
         } catch (error) {
           // 继续等待
           this.logger.debug(`检查上传状态时出错: ${error instanceof Error ? error.message : String(error)}`, { taskId, drama });
-          await this.randomDelay(2000, 3000);
+          await this.randomDelay(5000, 6000);
         }
       }
 
       if (!allUploaded) {
-        throw new Error('等待文件上传超时（10分钟）');
+        throw new Error('等待文件上传超时（20分钟）');
       }
 
       this.logger.debug('所有文件上传完成', { taskId, drama });
