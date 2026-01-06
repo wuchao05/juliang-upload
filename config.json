@@ -3,7 +3,7 @@
     "app_id": "cli_a870f7611b7b1013",
     "app_secret": "NTwHbZG8rpOQyMEnXGPV6cNQ84KEqE8z",
     "app_token": "WdWvbGUXXaokk8sAS94c00IZnsf",
-    "table_id": "tblDOyi2Lzs80sv0",
+    "table_id": "tblJcLhLpEkmFkga",
     "base_url": "https://open.feishu.cn/open-apis/bitable/v1",
     "fields": {
       "status": "当前状态",
