@@ -1,9 +1,9 @@
-import { Task, TaskStatus, Config } from '../types';
-import { getLogger } from '../logger';
-import { createFileManager } from '../file';
-import { createDouyinManager } from '../douyin';
-import { Uploader } from '../uploader';
-import { FeishuClient } from '../feishu/api';
+import { Task, TaskStatus, Config } from "../types";
+import { getLogger } from "../logger";
+import { createFileManager } from "../file";
+import { createDouyinManager } from "../douyin";
+import { Uploader } from "../uploader";
+import { FeishuClient } from "../feishu/api";
 
 /**
  * 任务队列类
@@ -20,14 +20,20 @@ export class TaskQueue {
   public addTask(task: Task): boolean {
     // 防止重复入队
     if (this.taskMap.has(task.recordId)) {
-      this.logger.debug(`任务 ${task.recordId} 已在队列中，跳过`, { taskId: task.id, drama: task.drama });
+      this.logger.debug(`任务 ${task.recordId} 已在队列中，跳过`, {
+        taskId: task.id,
+        drama: task.drama,
+      });
       return false;
     }
 
     this.queue.push(task);
     this.taskMap.set(task.recordId, task);
 
-    this.logger.info(`任务已入队: ${task.drama} (${task.date})`, { taskId: task.id, drama: task.drama });
+    this.logger.info(`任务已入队: ${task.drama} (${task.date})`, {
+      taskId: task.id,
+      drama: task.drama,
+    });
 
     return true;
   }
@@ -62,7 +68,11 @@ export class TaskQueue {
   /**
    * 更新任务状态
    */
-  private updateTaskStatus(task: Task, status: TaskStatus, error?: string): void {
+  private updateTaskStatus(
+    task: Task,
+    status: TaskStatus,
+    error?: string
+  ): void {
     task.status = status;
     task.updatedAt = new Date();
 
@@ -85,10 +95,11 @@ export class TaskQueue {
   } {
     return {
       total: this.queue.length,
-      pending: this.queue.filter(t => t.status === TaskStatus.PENDING).length,
-      running: this.queue.filter(t => t.status === TaskStatus.RUNNING).length,
-      completed: this.queue.filter(t => t.status === TaskStatus.COMPLETED).length,
-      skipped: this.queue.filter(t => t.status === TaskStatus.SKIPPED).length
+      pending: this.queue.filter((t) => t.status === TaskStatus.PENDING).length,
+      running: this.queue.filter((t) => t.status === TaskStatus.RUNNING).length,
+      completed: this.queue.filter((t) => t.status === TaskStatus.COMPLETED)
+        .length,
+      skipped: this.queue.filter((t) => t.status === TaskStatus.SKIPPED).length,
     };
   }
 
@@ -98,8 +109,11 @@ export class TaskQueue {
   public cleanup(): void {
     const before = this.queue.length;
 
-    this.queue = this.queue.filter(task => {
-      if (task.status === TaskStatus.COMPLETED || task.status === TaskStatus.SKIPPED) {
+    this.queue = this.queue.filter((task) => {
+      if (
+        task.status === TaskStatus.COMPLETED ||
+        task.status === TaskStatus.SKIPPED
+      ) {
         this.taskMap.delete(task.recordId);
         return false;
       }
@@ -124,7 +138,7 @@ export class TaskQueue {
    */
   public stop(): void {
     this.isProcessing = false;
-    this.logger.info('任务队列已停止');
+    this.logger.info("任务队列已停止");
   }
 
   /**
@@ -136,12 +150,12 @@ export class TaskQueue {
     feishuClient: FeishuClient
   ): Promise<void> {
     if (this.isProcessing) {
-      this.logger.warn('任务队列已在运行中');
+      this.logger.warn("任务队列已在运行中");
       return;
     }
 
     this.isProcessing = true;
-    this.logger.info('任务队列开始处理');
+    this.logger.info("任务队列开始处理");
 
     const fileManager = createFileManager(config.local.rootDir);
     const douyinManager = createDouyinManager(config.douyin);
@@ -151,15 +165,22 @@ export class TaskQueue {
 
       if (!task) {
         // 没有待处理任务，等待一段时间
-        await new Promise(resolve => setTimeout(resolve, 5000));
+        await new Promise((resolve) => setTimeout(resolve, 5000));
         continue;
       }
 
       // 处理任务
-      await this.processTask(task, config, fileManager, douyinManager, uploader, feishuClient);
+      await this.processTask(
+        task,
+        config,
+        fileManager,
+        douyinManager,
+        uploader,
+        feishuClient
+      );
 
       // 任务间延迟
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise((resolve) => setTimeout(resolve, 2000));
     }
   }
 
@@ -184,7 +205,11 @@ export class TaskQueue {
 
       if (!scanResult.exists || scanResult.mp4Files.length === 0) {
         this.updateTaskStatus(task, TaskStatus.SKIPPED, scanResult.error);
-        this.logger.taskSkipped(task.id, task.drama, scanResult.error || '目录或文件不存在');
+        this.logger.taskSkipped(
+          task.id,
+          task.drama,
+          scanResult.error || "目录或文件不存在"
+        );
         return;
       }
 
@@ -198,23 +223,36 @@ export class TaskQueue {
       const { valid, invalid } = fileManager.validateFiles(scanResult.mp4Files);
 
       if (invalid.length > 0) {
-        this.logger.warn(`${invalid.length} 个文件不可读`, { taskId: task.id, drama: task.drama });
+        this.logger.warn(`${invalid.length} 个文件不可读`, {
+          taskId: task.id,
+          drama: task.drama,
+        });
       }
 
       if (valid.length === 0) {
-        this.updateTaskStatus(task, TaskStatus.SKIPPED, '没有可读的 MP4 文件');
-        this.logger.taskSkipped(task.id, task.drama, '没有可读的 MP4 文件');
+        this.updateTaskStatus(task, TaskStatus.SKIPPED, "没有可读的 MP4 文件");
+        this.logger.taskSkipped(task.id, task.drama, "没有可读的 MP4 文件");
         return;
       }
 
       // 3. 构造上传 URL
       const uploadUrl = douyinManager.buildUploadUrl(task.account);
-      this.logger.debug(`上传 URL: ${uploadUrl}`, { taskId: task.id, drama: task.drama });
+      this.logger.debug(`上传 URL: ${uploadUrl}`, {
+        taskId: task.id,
+        drama: task.drama,
+      });
 
       // 4. 更新飞书状态为"上传中"
-      const updateToUploading = await feishuClient.updateRecordStatus(task.recordId, '上传中', task.drama);
+      const updateToUploading = await feishuClient.updateRecordStatus(
+        task.recordId,
+        "上传中",
+        task.drama
+      );
       if (!updateToUploading) {
-        this.logger.warn(`更新飞书状态为"上传中"失败，但继续上传`, { taskId: task.id, drama: task.drama });
+        this.logger.warn(`更新飞书状态为"上传中"失败，但继续上传`, {
+          taskId: task.id,
+          drama: task.drama,
+        });
       }
 
       // 5. 执行上传
@@ -227,7 +265,11 @@ export class TaskQueue {
 
       if (!uploadResult.success) {
         this.updateTaskStatus(task, TaskStatus.SKIPPED, uploadResult.error);
-        this.logger.taskFailed(task.id, task.drama, uploadResult.error || '上传失败');
+        this.logger.taskFailed(
+          task.id,
+          task.drama,
+          uploadResult.error || "上传失败"
+        );
         return;
       }
 
@@ -238,15 +280,19 @@ export class TaskQueue {
         uploadResult.uploadedBatches
       );
 
-      // 6. 更新飞书状态为"待搭建"
-      const updateSuccess = await feishuClient.updateRecordStatus(task.recordId, '待搭建', task.drama);
+      // 6. 更新飞书状态为"待资产化"
+      const updateSuccess = await feishuClient.updateRecordStatus(
+        task.recordId,
+        "待资产化",
+        task.drama
+      );
 
       if (updateSuccess) {
         this.updateTaskStatus(task, TaskStatus.COMPLETED);
         this.logger.feishuUpdate(task.id, task.drama, true);
       } else {
         // 虽然上传成功但飞书更新失败，标记为 skipped 以便下次重试
-        this.updateTaskStatus(task, TaskStatus.SKIPPED, '飞书状态更新失败');
+        this.updateTaskStatus(task, TaskStatus.SKIPPED, "飞书状态更新失败");
         this.logger.feishuUpdate(task.id, task.drama, false);
       }
     } catch (error) {
@@ -263,4 +309,3 @@ export class TaskQueue {
 export function createTaskQueue(): TaskQueue {
   return new TaskQueue();
 }
-

@@ -12,10 +12,10 @@ const url = `/apps/${app_token}/tables/${table_id}/records`;
 const filterParam = `CurrentValue.[${field}]="待上传"`;
 const queryString = new URLSearchParams({
   filter: filterParam,
-  page_size: 100
+  page_size: 100,
 }).toString();
 
-const response = await request('get', `${url}?${queryString}`);
+const response = await request("get", `${url}?${queryString}`);
 ```
 
 #### 现在的实现（正确）
@@ -25,21 +25,21 @@ const response = await request('get', `${url}?${queryString}`);
 const url = `/apps/${app_token}/tables/${table_id}/records/search`;
 
 const requestBody = {
-  field_names: ['剧名', '日期', '账户', '当前状态'],
+  field_names: ["剧名", "日期", "账户", "当前状态"],
   page_size: 100,
   filter: {
-    conjunction: 'and',
+    conjunction: "and",
     conditions: [
       {
-        field_name: '当前状态',
-        operator: 'is',
-        value: ['待上传']
-      }
-    ]
-  }
+        field_name: "当前状态",
+        operator: "is",
+        value: ["待上传"],
+      },
+    ],
+  },
 };
 
-const response = await request('post', url, requestBody);
+const response = await request("post", url, requestBody);
 ```
 
 #### 关键变更
@@ -71,8 +71,8 @@ const url = `/apps/${app_token}/tables/${table_id}/records/${recordId}`;
 
 await request("put", url, {
   fields: {
-    "当前状态": "待搭建"
-  }
+    当前状态: "待资产化",
+  },
 });
 ```
 
@@ -84,8 +84,8 @@ const url = `/apps/${app_token}/tables/${table_id}/records/${recordId}`;
 
 await request("patch", url, {
   fields: {
-    "当前状态": "待搭建"
-  }
+    当前状态: "待资产化",
+  },
 });
 ```
 
@@ -103,10 +103,10 @@ await request("patch", url, {
 
 #### API 规范对比
 
-| 方法 | 语义 | 用途 | 飞书推荐 |
-|------|------|------|----------|
-| PUT | 完整替换 | 替换整个资源 | ❌ 不推荐 |
-| PATCH | 部分更新 | 只更新指定字段 | ✅ 推荐 |
+| 方法  | 语义     | 用途           | 飞书推荐  |
+| ----- | -------- | -------------- | --------- |
+| PUT   | 完整替换 | 替换整个资源   | ❌ 不推荐 |
+| PATCH | 部分更新 | 只更新指定字段 | ✅ 推荐   |
 
 #### 完整的更新流程
 
@@ -118,21 +118,21 @@ const token = await getTenantAccessToken();
 const url = `/apps/${app_token}/tables/${table_id}/records/${recordId}`;
 const data = {
   fields: {
-    "当前状态": "待搭建"
-  }
+    当前状态: "待资产化",
+  },
 };
 
 // 3. 发送 PATCH 请求
 const response = await axios.patch(url, data, {
   headers: {
-    'Authorization': `Bearer ${token}`,
-    'Content-Type': 'application/json'
-  }
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json",
+  },
 });
 
 // 4. 检查响应
 if (response.data.code === 0) {
-  console.log('更新成功');
+  console.log("更新成功");
 }
 ```
 
@@ -155,14 +155,14 @@ private async getTenantAccessToken(forceRefresh: boolean = false): Promise<strin
   if (!forceRefresh && this.tokenCache && Date.now() < this.tokenCache.expireAt) {
     return this.tokenCache.token;
   }
-  
+
   // 获取并缓存 token
   const { tenant_access_token, expire } = response.data.data;
   this.tokenCache = {
     token: tenant_access_token,
     expireAt: Date.now() + (expire - 300) * 1000
   };
-  
+
   return tenant_access_token;
 }
 ```
@@ -179,7 +179,7 @@ private async getTenantAccessToken(): Promise<string> {
       app_secret: this.config.app_secret
     }
   );
-  
+
   const { tenant_access_token } = response.data.data;
   return tenant_access_token;
 }
@@ -197,26 +197,30 @@ private async getTenantAccessToken(): Promise<string> {
 - **缺点**：每次 API 调用都需要额外的一次 token 获取请求
 
 **评估：**
+
 - 飞书 token 获取接口响应很快（通常 < 100ms）
-- 本系统调用频率不高（30分钟轮询一次）
+- 本系统调用频率不高（30 分钟轮询一次）
 - 性能损失可以忽略不计
 - 可靠性提升的收益远大于性能损失
 
 ### API 调用频率
 
 **之前（使用缓存）：**
+
 - 每 2 小时获取一次 token
 - 其他时间使用缓存的 token
 
 **现在（不使用缓存）：**
+
 - 获取待上传记录：1 次 token 请求
 - 更新每条记录状态：1 次 token 请求
 - 假设有 N 条记录要处理：1 + N 次 token 请求
 
 **示例计算：**
+
 - 假设每次有 5 条待上传记录
 - 每 30 分钟执行一次
-- 总计：(1 + 5) = 6 次 token 请求 / 30分钟
+- 总计：(1 + 5) = 6 次 token 请求 / 30 分钟
 - 平均：0.2 次 token 请求 / 分钟
 
 这个频率完全可以接受，不会对飞书 API 造成压力。
@@ -224,6 +228,7 @@ private async getTenantAccessToken(): Promise<string> {
 ### 飞书 API 限流
 
 根据飞书开放平台文档：
+
 - tenant_access_token 接口限流：50 次/分钟/应用
 - 我们的调用频率：< 1 次/分钟
 - 安全余量：非常充足
@@ -247,4 +252,3 @@ export interface FeishuTokenCache {
 ### 总结
 
 这是一个内部实现的优化，遵循"简单优于复杂"的原则。在我们的使用场景下，性能影响微乎其微，但代码可靠性和可维护性得到了显著提升。
-

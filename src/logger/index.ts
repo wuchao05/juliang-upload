@@ -1,6 +1,6 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import { LogLevel, LogOptions } from '../types';
+import * as fs from "fs";
+import * as path from "path";
+import { LogLevel, LogOptions } from "../types";
 
 /**
  * 日志管理类
@@ -9,9 +9,9 @@ export class Logger {
   private logDir: string;
   private logFile: string;
 
-  constructor(logDir: string = './logs') {
+  constructor(logDir: string = "./logs") {
     this.logDir = logDir;
-    this.logFile = path.join(logDir, 'upload.log');
+    this.logFile = path.join(logDir, "upload.log");
     this.ensureLogDir();
   }
 
@@ -27,12 +27,13 @@ export class Logger {
   /**
    * 格式化日志消息
    */
-  private formatMessage(level: LogLevel, message: string, options?: LogOptions): string {
+  private formatMessage(
+    level: LogLevel,
+    message: string,
+    options?: LogOptions
+  ): string {
     const timestamp = new Date().toISOString();
-    const parts = [
-      `[${timestamp}]`,
-      `[${level}]`
-    ];
+    const parts = [`[${timestamp}]`, `[${level}]`];
 
     if (options?.taskId) {
       parts.push(`[Task:${options.taskId}]`);
@@ -44,7 +45,7 @@ export class Logger {
 
     parts.push(message);
 
-    return parts.join(' ');
+    return parts.join(" ");
   }
 
   /**
@@ -52,9 +53,9 @@ export class Logger {
    */
   private writeToFile(message: string): void {
     try {
-      fs.appendFileSync(this.logFile, message + '\n', 'utf-8');
+      fs.appendFileSync(this.logFile, message + "\n", "utf-8");
     } catch (error) {
-      console.error('写入日志文件失败:', error);
+      console.error("写入日志文件失败:", error);
     }
   }
 
@@ -115,20 +116,30 @@ export class Logger {
   /**
    * 记录任务开始
    */
-  public taskStart(taskId: string, drama: string, date: string, account: string): void {
+  public taskStart(
+    taskId: string,
+    drama: string,
+    date: string,
+    account: string
+  ): void {
     this.info(`任务开始 - 剧名: ${drama}, 日期: ${date}, 账户: ${account}`, {
       taskId,
-      drama
+      drama,
     });
   }
 
   /**
    * 记录任务完成
    */
-  public taskComplete(taskId: string, drama: string, totalFiles: number, batches: number): void {
+  public taskComplete(
+    taskId: string,
+    drama: string,
+    totalFiles: number,
+    batches: number
+  ): void {
     this.info(`任务完成 - 共上传 ${totalFiles} 个文件, 分 ${batches} 批`, {
       taskId,
-      drama
+      drama,
     });
   }
 
@@ -138,7 +149,7 @@ export class Logger {
   public taskSkipped(taskId: string, drama: string, reason: string): void {
     this.warn(`任务跳过 - 原因: ${reason}`, {
       taskId,
-      drama
+      drama,
     });
   }
 
@@ -148,18 +159,21 @@ export class Logger {
   public taskFailed(taskId: string, drama: string, error: string): void {
     this.error(`任务失败 - 错误: ${error}`, {
       taskId,
-      drama
+      drama,
     });
   }
 
   /**
    * 记录路径检查
    */
-  public pathCheck(taskId: string, drama: string, path: string, exists: boolean): void {
-    const message = exists 
-      ? `路径检查通过: ${path}` 
-      : `路径不存在: ${path}`;
-    
+  public pathCheck(
+    taskId: string,
+    drama: string,
+    path: string,
+    exists: boolean
+  ): void {
+    const message = exists ? `路径检查通过: ${path}` : `路径不存在: ${path}`;
+
     this.info(message, { taskId, drama });
   }
 
@@ -173,21 +187,30 @@ export class Logger {
   /**
    * 记录上传批次
    */
-  public uploadBatch(taskId: string, drama: string, batchIndex: number, totalBatches: number, fileCount: number): void {
-    this.info(`开始上传第 ${batchIndex}/${totalBatches} 批 (${fileCount} 个文件)`, {
-      taskId,
-      drama
-    });
+  public uploadBatch(
+    taskId: string,
+    drama: string,
+    batchIndex: number,
+    totalBatches: number,
+    fileCount: number
+  ): void {
+    this.info(
+      `开始上传第 ${batchIndex}/${totalBatches} 批 (${fileCount} 个文件)`,
+      {
+        taskId,
+        drama,
+      }
+    );
   }
 
   /**
    * 记录飞书状态更新
    */
   public feishuUpdate(taskId: string, drama: string, success: boolean): void {
-    const message = success 
-      ? '飞书状态更新成功: 待上传 → 待搭建' 
-      : '飞书状态更新失败';
-    
+    const message = success
+      ? "飞书状态更新成功: 待上传 → 待资产化"
+      : "飞书状态更新失败";
+
     if (success) {
       this.info(message, { taskId, drama });
     } else {
@@ -205,4 +228,3 @@ export function getLogger(logDir?: string): Logger {
   }
   return logger;
 }
-
