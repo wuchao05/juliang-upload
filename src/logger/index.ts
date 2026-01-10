@@ -25,6 +25,25 @@ export class Logger {
   }
 
   /**
+   * 获取北京时间格式的时间戳
+   * 格式：YYYY-MM-DD HH:mm:ss
+   */
+  private getBeijingTimestamp(): string {
+    const now = new Date();
+    // 转换为北京时间 (UTC+8)
+    const beijingTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+    
+    const year = beijingTime.getUTCFullYear();
+    const month = String(beijingTime.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(beijingTime.getUTCDate()).padStart(2, '0');
+    const hours = String(beijingTime.getUTCHours()).padStart(2, '0');
+    const minutes = String(beijingTime.getUTCMinutes()).padStart(2, '0');
+    const seconds = String(beijingTime.getUTCSeconds()).padStart(2, '0');
+    
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+  }
+
+  /**
    * 格式化日志消息
    */
   private formatMessage(
@@ -32,7 +51,7 @@ export class Logger {
     message: string,
     options?: LogOptions
   ): string {
-    const timestamp = new Date().toISOString();
+    const timestamp = this.getBeijingTimestamp();
     const parts = [`[${timestamp}]`, `[${level}]`];
 
     if (options?.taskId) {

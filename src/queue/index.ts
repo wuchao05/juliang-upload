@@ -270,6 +270,25 @@ export class TaskQueue {
           task.drama,
           uploadResult.error || "上传失败"
         );
+
+        // 上传失败（重试多次后仍失败），将飞书状态改回"待上传"
+        const revertSuccess = await feishuClient.updateRecordStatus(
+          task.recordId,
+          "待上传",
+          task.drama
+        );
+        if (revertSuccess) {
+          this.logger.info(`已将飞书状态恢复为"待上传"，等待下次重试`, {
+            taskId: task.id,
+            drama: task.drama,
+          });
+        } else {
+          this.logger.warn(`恢复飞书状态为"待上传"失败`, {
+            taskId: task.id,
+            drama: task.drama,
+          });
+        }
+
         return;
       }
 
