@@ -15,8 +15,8 @@ export class FileManager {
   }
 
   /**
-   * 将日期格式从 YYYY-MM-DD 转换为 MM.DD 导出
-   * 例如：2025-12-24 → 12.24 导出
+   * 将日期格式从 YYYY-MM-DD 转换为 M.D 导出（不带前导零）
+   * 例如：2025-12-24 → 12.24导出，2025-01-07 → 1.7导出
    */
   public convertDateToFolder(date: string): string {
     try {
@@ -27,8 +27,8 @@ export class FileManager {
         throw new Error(`无效的日期格式: ${date}`);
       }
 
-      const month = String(dateObj.getMonth() + 1).padStart(2, "0");
-      const day = String(dateObj.getDate()).padStart(2, "0");
+      const month = dateObj.getMonth() + 1; // 不带前导零
+      const day = dateObj.getDate(); // 不带前导零
 
       return `${month}.${day}导出`;
     } catch (error) {
