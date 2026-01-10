@@ -309,6 +309,22 @@ export class TaskQueue {
       if (updateSuccess) {
         this.updateTaskStatus(task, TaskStatus.COMPLETED);
         this.logger.feishuUpdate(task.id, task.drama, true);
+
+        // 7. 上传成功，删除本地素材目录
+        if (task.localPath) {
+          const deleteSuccess = fileManager.deleteDirectory(task.localPath);
+          if (deleteSuccess) {
+            this.logger.info(`本地素材目录已清理: ${task.localPath}`, {
+              taskId: task.id,
+              drama: task.drama,
+            });
+          } else {
+            this.logger.warn(`清理本地素材目录失败: ${task.localPath}`, {
+              taskId: task.id,
+              drama: task.drama,
+            });
+          }
+        }
       } else {
         // 虽然上传成功但飞书更新失败，标记为 skipped 以便下次重试
         this.updateTaskStatus(task, TaskStatus.SKIPPED, "飞书状态更新失败");

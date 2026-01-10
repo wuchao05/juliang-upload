@@ -202,6 +202,43 @@ export class FileManager {
   public getTotalSize(files: string[]): number {
     return files.reduce((total, file) => total + this.getFileSize(file), 0);
   }
+
+  /**
+   * 删除目录及其所有内容
+   * @param dirPath 要删除的目录路径
+   * @returns 是否删除成功
+   */
+  public deleteDirectory(dirPath: string): boolean {
+    try {
+      if (!this.directoryExists(dirPath)) {
+        this.logger.warn(`目录不存在，无需删除: ${dirPath}`);
+        return true;
+      }
+
+      // 递归删除目录
+      fs.rmSync(dirPath, { recursive: true, force: true });
+      this.logger.info(`素材目录已删除: ${dirPath}`);
+      return true;
+    } catch (error) {
+      this.logger.error(
+        `删除目录失败: ${dirPath}, 错误: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+      return false;
+    }
+  }
+
+  /**
+   * 删除剧的素材目录
+   * @param date 日期
+   * @param drama 剧名
+   * @returns 是否删除成功
+   */
+  public deleteDramaDirectory(date: string, drama: string): boolean {
+    const dramaPath = this.buildDramaPath(date, drama);
+    return this.deleteDirectory(dramaPath);
+  }
 }
 
 /**
