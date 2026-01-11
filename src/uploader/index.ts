@@ -106,6 +106,9 @@ export class Uploader {
 
   /**
    * 上传单批文件（支持重试）
+   * 策略：
+   * - 第1次不足额：重试整批
+   * - 第2次及以后：如果只少1-2个，算上传成功
    */
   private async uploadBatch(
     page: Page,
@@ -116,6 +119,7 @@ export class Uploader {
     drama: string
   ): Promise<boolean> {
     const maxRetries = 5; // 最多重试5次
+    const allowedShortfall = 2; // 允许的最大差额
 
     for (let retry = 0; retry < maxRetries; retry++) {
       try {
@@ -132,17 +136,62 @@ export class Uploader {
           batchIndex,
           totalBatches,
           taskId,
-          drama
+          drama,
+          retry // 传递当前重试次数
         );
 
-        if (result) {
+        // 完全成功
+        if (result.success) {
           return true;
         }
 
-        // 如果返回 false，说明需要重试
+        // 第2次及以后尝试，如果只少1-2个，算成功
+        if (retry >= 1 && result.successCount > 0) {
+          const shortfall = files.length - result.successCount;
+          if (shortfall <= allowedShortfall) {
+            this.logger.warn(
+              `第 ${batchIndex}/${totalBatches} 批上传了 ${result.successCount}/${files.length} 个素材（差 ${shortfall} 个），容许范围内，继续下一批`,
+              { taskId, drama }
+            );
+
+            // 点击确定按钮继续
+            try {
+              const confirmButton = page
+                .locator(this.uploaderConfig.selectors.confirmButton)
+                .first();
+              await confirmButton.waitFor({ state: "visible", timeout: 10000 });
+              await this.randomDelay(500, 1000);
+              await confirmButton.click();
+              this.logger.debug("确定按钮点击成功", { taskId, drama });
+
+              // 等待页面准备
+              if (batchIndex < totalBatches) {
+                await this.randomDelay(5000, 8000);
+              } else {
+                await this.randomDelay(
+                  this.uploaderConfig.batchDelayMin,
+                  this.uploaderConfig.batchDelayMax
+                );
+              }
+            } catch (confirmError) {
+              this.logger.error(
+                `点击确定按钮失败: ${
+                  confirmError instanceof Error
+                    ? confirmError.message
+                    : String(confirmError)
+                }`,
+                { taskId, drama }
+              );
+            }
+
+            return true;
+          }
+        }
+
+        // 需要重试
         if (retry < maxRetries - 1) {
           this.logger.warn(
-            `第 ${batchIndex}/${totalBatches} 批上传失败，准备重试...`,
+            `第 ${batchIndex}/${totalBatches} 批上传不足额（${result.successCount}/${files.length}），准备重试...`,
             { taskId, drama }
           );
           await this.randomDelay(3000, 5000);
@@ -170,6 +219,7 @@ export class Uploader {
 
   /**
    * 上传单批文件（内部实现）
+   * @returns { success: boolean, successCount: number }
    */
   private async uploadBatchInternal(
     page: Page,
@@ -177,8 +227,9 @@ export class Uploader {
     batchIndex: number,
     totalBatches: number,
     taskId: string,
-    drama: string
-  ): Promise<boolean> {
+    drama: string,
+    retryCount: number
+  ): Promise<{ success: boolean; successCount: number }> {
     try {
       this.logger.uploadBatch(
         taskId,
@@ -268,7 +319,7 @@ export class Uploader {
 
       const maxWaitTime = 600000; // 10分钟
       const startTime = Date.now();
-      let allUploaded = false;
+      let finalSuccessCount = 0;
 
       // 先等待一下，让文件开始上传和进度条出现
       await this.randomDelay(5000, 6000);
@@ -317,14 +368,18 @@ export class Uploader {
 
           // 判断上传完成的条件：所有找到的进度条都显示成功状态
           if (successCount === progressCount && successCount > 0) {
+            finalSuccessCount = successCount;
+
             if (progressCount < files.length) {
-              // 进度条数量少于预期，说明有文件上传失败，需要重试
-              this.logger.error(
-                `进度条数量少于预期（${progressCount}/${files.length}），有文件上传失败，点击取消按钮重试`,
+              // 进度条数量少于预期，说明有文件上传失败
+              this.logger.warn(
+                `上传完成但数量不足：${progressCount}/${files.length}（第 ${
+                  retryCount + 1
+                } 次尝试）`,
                 { taskId, drama }
               );
 
-              // 点击取消按钮
+              // 点击取消按钮，让外层决定是否重试或容许
               try {
                 const cancelButton = page
                   .locator(this.uploaderConfig.selectors.cancelButton)
@@ -332,7 +387,7 @@ export class Uploader {
                 await cancelButton.waitFor({ state: "visible", timeout: 5000 });
                 await this.randomDelay(500, 1000);
                 await cancelButton.click();
-                this.logger.debug("取消按钮点击成功，准备重试", {
+                this.logger.debug("取消按钮点击成功", {
                   taskId,
                   drama,
                 });
@@ -348,16 +403,45 @@ export class Uploader {
                 );
               }
 
-              // 返回 false 触发重试
-              return false;
+              // 返回不足额状态，让外层决定
+              return { success: false, successCount: finalSuccessCount };
             } else {
               // 进度条数量符合预期，全部上传成功
-              allUploaded = true;
               this.logger.debug("所有素材上传完成（所有进度条显示成功状态）", {
                 taskId,
                 drama,
               });
-              break;
+
+              this.logger.debug("所有文件上传完成", { taskId, drama });
+              await this.randomDelay(1000, 2000);
+
+              // 6. 点击确定按钮
+              this.logger.debug("查找并点击确定按钮", { taskId, drama });
+
+              const confirmButton = page
+                .locator(this.uploaderConfig.selectors.confirmButton)
+                .first();
+              await confirmButton.waitFor({ state: "visible", timeout: 10000 });
+              await this.randomDelay(500, 1000);
+              await confirmButton.click();
+
+              this.logger.debug("确定按钮点击成功", { taskId, drama });
+
+              // 批次间延迟
+              if (batchIndex < totalBatches) {
+                this.logger.debug(`等待页面准备下一批上传...`, {
+                  taskId,
+                  drama,
+                });
+                await this.randomDelay(5000, 8000);
+              } else {
+                await this.randomDelay(
+                  this.uploaderConfig.batchDelayMin,
+                  this.uploaderConfig.batchDelayMax
+                );
+              }
+
+              return { success: true, successCount: finalSuccessCount };
             }
           }
 
@@ -375,38 +459,8 @@ export class Uploader {
         }
       }
 
-      if (!allUploaded) {
-        throw new Error("等待文件上传超时（10分钟）");
-      }
-
-      this.logger.debug("所有文件上传完成", { taskId, drama });
-      await this.randomDelay(1000, 2000);
-
-      // 6. 点击确定按钮（如果还有下一批或这是最后一批）
-      this.logger.debug("查找并点击确定按钮", { taskId, drama });
-
-      const confirmButton = page
-        .locator(this.uploaderConfig.selectors.confirmButton)
-        .first();
-      await confirmButton.waitFor({ state: "visible", timeout: 10000 });
-      await this.randomDelay(500, 1000);
-      await confirmButton.click();
-
-      this.logger.debug("确定按钮点击成功", { taskId, drama });
-
-      // 批次间延迟（点击确定后页面需要时间准备下一批上传）
-      if (batchIndex < totalBatches) {
-        this.logger.debug(`等待页面准备下一批上传...`, { taskId, drama });
-        await this.randomDelay(5000, 8000); // 增加到5-8秒，让页面有充足时间刷新
-      } else {
-        // 最后一批，使用配置的延迟
-        await this.randomDelay(
-          this.uploaderConfig.batchDelayMin,
-          this.uploaderConfig.batchDelayMax
-        );
-      }
-
-      return true;
+      // 超时
+      throw new Error("等待文件上传超时（10分钟）");
     } catch (error) {
       this.logger.error(
         `上传第 ${batchIndex}/${totalBatches} 批失败: ${
@@ -414,7 +468,7 @@ export class Uploader {
         }`,
         { taskId, drama }
       );
-      return false;
+      return { success: false, successCount: 0 };
     }
   }
 
