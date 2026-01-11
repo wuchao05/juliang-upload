@@ -106,9 +106,7 @@ export class Uploader {
 
   /**
    * 上传单批文件（支持重试）
-   * 策略：
-   * - 第1次不足额：重试整批
-   * - 第2次及以后：如果只少1-2个，算上传成功
+   * 策略：必须所有素材都上传成功才算成功，不足额就重试
    */
   private async uploadBatch(
     page: Page,
@@ -119,7 +117,6 @@ export class Uploader {
     drama: string
   ): Promise<boolean> {
     const maxRetries = 5; // 最多重试5次
-    const allowedShortfall = 2; // 允许的最大差额
 
     for (let retry = 0; retry < maxRetries; retry++) {
       try {
@@ -145,56 +142,20 @@ export class Uploader {
           return true;
         }
 
-        // 第2次及以后尝试，如果只少1-2个，算成功
-        if (retry >= 1 && result.successCount > 0) {
-          const shortfall = files.length - result.successCount;
-          if (shortfall <= allowedShortfall) {
-            this.logger.warn(
-              `第 ${batchIndex}/${totalBatches} 批上传了 ${result.successCount}/${files.length} 个素材（差 ${shortfall} 个），容许范围内，继续下一批`,
-              { taskId, drama }
-            );
-
-            // 点击确定按钮继续
-            try {
-              const confirmButton = page
-                .locator(this.uploaderConfig.selectors.confirmButton)
-                .first();
-              await confirmButton.waitFor({ state: "visible", timeout: 10000 });
-              await this.randomDelay(500, 1000);
-              await confirmButton.click();
-              this.logger.debug("确定按钮点击成功", { taskId, drama });
-
-              // 等待页面准备
-              if (batchIndex < totalBatches) {
-                await this.randomDelay(5000, 8000);
-              } else {
-                await this.randomDelay(
-                  this.uploaderConfig.batchDelayMin,
-                  this.uploaderConfig.batchDelayMax
-                );
-              }
-            } catch (confirmError) {
-              this.logger.error(
-                `点击确定按钮失败: ${
-                  confirmError instanceof Error
-                    ? confirmError.message
-                    : String(confirmError)
-                }`,
-                { taskId, drama }
-              );
-            }
-
-            return true;
-          }
-        }
-
-        // 需要重试
+        // 不足额，需要重试
         if (retry < maxRetries - 1) {
+          const shortfall = files.length - result.successCount;
           this.logger.warn(
-            `第 ${batchIndex}/${totalBatches} 批上传不足额（${result.successCount}/${files.length}），准备重试...`,
+            `第 ${batchIndex}/${totalBatches} 批上传不足额（${result.successCount}/${files.length}，差 ${shortfall} 个），准备重试...`,
             { taskId, drama }
           );
           await this.randomDelay(3000, 5000);
+        } else {
+          // 最后一次重试仍失败
+          this.logger.error(
+            `第 ${batchIndex}/${totalBatches} 批重试 ${maxRetries} 次后仍失败（${result.successCount}/${files.length}）`,
+            { taskId, drama }
+          );
         }
       } catch (error) {
         this.logger.error(

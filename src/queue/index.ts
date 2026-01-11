@@ -278,10 +278,13 @@ export class TaskQueue {
           task.drama
         );
         if (revertSuccess) {
-          this.logger.info(`已将飞书状态恢复为"待上传"，等待下次重试`, {
-            taskId: task.id,
-            drama: task.drama,
-          });
+          this.logger.info(
+            `已将飞书状态恢复为"待上传"，保留本地素材目录，等待下次重试`,
+            {
+              taskId: task.id,
+              drama: task.drama,
+            }
+          );
         } else {
           this.logger.warn(`恢复飞书状态为"待上传"失败`, {
             taskId: task.id,
@@ -289,6 +292,7 @@ export class TaskQueue {
           });
         }
 
+        // 不删除本地素材目录，等待下次重试
         return;
       }
 
@@ -329,11 +333,35 @@ export class TaskQueue {
         // 虽然上传成功但飞书更新失败，标记为 skipped 以便下次重试
         this.updateTaskStatus(task, TaskStatus.SKIPPED, "飞书状态更新失败");
         this.logger.feishuUpdate(task.id, task.drama, false);
+
+        // 不删除本地素材目录，避免飞书更新失败但素材已删除的情况
+        this.logger.warn(
+          `飞书状态更新失败，保留本地素材目录: ${task.localPath}`,
+          {
+            taskId: task.id,
+            drama: task.drama,
+          }
+        );
       }
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       this.updateTaskStatus(task, TaskStatus.SKIPPED, errorMsg);
       this.logger.taskFailed(task.id, task.drama, errorMsg);
+
+      // 异常情况，将飞书状态改回"待上传"
+      const revertSuccess = await feishuClient.updateRecordStatus(
+        task.recordId,
+        "待上传",
+        task.drama
+      );
+      if (revertSuccess) {
+        this.logger.info(`已将飞书状态恢复为"待上传"（异常情况）`, {
+          taskId: task.id,
+          drama: task.drama,
+        });
+      }
+
+      // 不删除本地素材目录，等待下次重试
     }
   }
 }
