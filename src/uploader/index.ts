@@ -125,6 +125,13 @@ export class Uploader {
             `第 ${batchIndex}/${totalBatches} 批重试第 ${retry} 次`,
             { taskId, drama }
           );
+
+          // 重试前刷新页面，确保页面状态干净
+          this.logger.debug("刷新页面以清理状态...", { taskId, drama });
+          await page.reload({ waitUntil: "networkidle", timeout: 60000 });
+          await this.waitForPageReady(page);
+          this.logger.debug("页面刷新完成，等待 5 秒后重试", { taskId, drama });
+          await page.waitForTimeout(5000); // 固定等待5秒
         }
 
         const result = await this.uploadBatchInternal(
@@ -146,10 +153,9 @@ export class Uploader {
         if (retry < maxRetries - 1) {
           const shortfall = files.length - result.successCount;
           this.logger.warn(
-            `第 ${batchIndex}/${totalBatches} 批上传不足额（${result.successCount}/${files.length}，差 ${shortfall} 个），准备重试...`,
+            `第 ${batchIndex}/${totalBatches} 批上传不足额（${result.successCount}/${files.length}，差 ${shortfall} 个），准备刷新页面后重试...`,
             { taskId, drama }
           );
-          await this.randomDelay(3000, 5000);
         } else {
           // 最后一次重试仍失败
           this.logger.error(
@@ -168,7 +174,7 @@ export class Uploader {
         );
 
         if (retry < maxRetries - 1) {
-          await this.randomDelay(3000, 5000);
+          this.logger.warn("准备刷新页面后重试...", { taskId, drama });
         } else {
           throw error;
         }
