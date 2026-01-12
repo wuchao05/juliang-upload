@@ -255,12 +255,15 @@ export class TaskQueue {
         });
       }
 
-      // 5. 执行上传
+      // 5. 执行上传（支持断点续传）
       const uploadResult = await uploader.uploadFiles(
         uploadUrl,
         valid,
         task.id,
-        task.drama
+        task.drama,
+        task.recordId, // 飞书记录ID，用于保存进度
+        task.date,
+        task.account
       );
 
       if (!uploadResult.success) {

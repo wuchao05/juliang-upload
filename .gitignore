@@ -26,6 +26,9 @@ Thumbs.db
 playwright-state/
 .playwright/
 
+# Upload progress
+upload-progress/
+
 # Test
 test-results/
 

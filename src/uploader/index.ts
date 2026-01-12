@@ -1,6 +1,7 @@
 import { chromium, BrowserContext, Page } from "playwright";
 import { UploaderConfig, PlaywrightConfig, UploadResult } from "../types";
 import { getLogger } from "../logger";
+import { ProgressManager } from "../progress";
 
 /**
  * 上传器类
@@ -11,6 +12,7 @@ export class Uploader {
   private context: BrowserContext | null = null;
   private page: Page | null = null; // 复用的单个页面实例
   private logger = getLogger();
+  private progressManager: ProgressManager;
 
   constructor(
     uploaderConfig: UploaderConfig,
@@ -18,6 +20,7 @@ export class Uploader {
   ) {
     this.uploaderConfig = uploaderConfig;
     this.playwrightConfig = playwrightConfig;
+    this.progressManager = new ProgressManager();
   }
 
   /**
@@ -116,7 +119,7 @@ export class Uploader {
     taskId: string,
     drama: string
   ): Promise<boolean> {
-    const maxRetries = 5; // 最多重试5次
+    const maxRetries = 10; // 最多重试10次
 
     for (let retry = 0; retry < maxRetries; retry++) {
       try {
@@ -440,13 +443,16 @@ export class Uploader {
   }
 
   /**
-   * 上传所有文件
+   * 上传所有文件（支持断点续传）
    */
   public async uploadFiles(
     url: string,
     files: string[],
     taskId: string,
-    drama: string
+    drama: string,
+    recordId: string,
+    date: string,
+    account: string
   ): Promise<UploadResult> {
     if (!this.page) {
       throw new Error("浏览器未初始化，请先调用 initialize()");
@@ -474,9 +480,27 @@ export class Uploader {
       }
 
       const totalBatches = batches.length;
-      this.logger.info(`文件分为 ${totalBatches} 批上传`, { taskId, drama });
 
-      for (let i = 0; i < batches.length; i++) {
+      // 检查是否有保存的进度（断点续传）
+      const savedProgress = this.progressManager.getProgress(recordId);
+      let startBatchIndex = 0;
+
+      if (savedProgress && savedProgress.totalBatches === totalBatches) {
+        startBatchIndex = savedProgress.completedBatches;
+        if (startBatchIndex > 0) {
+          this.logger.info(
+            `检测到上传进度，从第 ${
+              startBatchIndex + 1
+            }/${totalBatches} 批开始继续上传`,
+            { taskId, drama }
+          );
+        }
+      } else {
+        this.logger.info(`文件分为 ${totalBatches} 批上传`, { taskId, drama });
+      }
+
+      // 从保存的进度开始上传
+      for (let i = startBatchIndex; i < batches.length; i++) {
         const batch = batches[i];
         const success = await this.uploadBatch(
           this.page,
@@ -488,6 +512,16 @@ export class Uploader {
         );
 
         if (!success) {
+          // 上传失败，保存进度
+          this.progressManager.updateProgress(
+            recordId,
+            drama,
+            date,
+            account,
+            totalBatches,
+            i // 保存已完成的批次数
+          );
+
           return {
             success: false,
             totalFiles: files.length,
@@ -495,9 +529,22 @@ export class Uploader {
             error: `第 ${i + 1} 批上传失败`,
           };
         }
+
+        // 每批成功后更新进度
+        this.progressManager.updateProgress(
+          recordId,
+          drama,
+          date,
+          account,
+          totalBatches,
+          i + 1 // 已完成的批次数
+        );
       }
 
       this.logger.info(`所有文件上传成功`, { taskId, drama });
+
+      // 上传完成，清除进度记录
+      this.progressManager.clearProgress(recordId, drama);
 
       // 不关闭页面，下一个任务继续复用
 
