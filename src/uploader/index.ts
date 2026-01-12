@@ -254,8 +254,8 @@ export class Uploader {
         { taskId, drama }
       );
 
-      // 先开始监听文件选择器事件（在点击之前），增加超时时间
-      const fileChooserTimeout = 60000; // 统一使用60秒超时
+      // 先开始监听文件选择器事件（在点击之前）
+      const fileChooserTimeout = 15000; // 15秒超时（如果没弹出说明页面有问题）
       this.logger.debug(
         `开始监听文件选择器事件（超时: ${fileChooserTimeout}ms）`,
         { taskId, drama }
