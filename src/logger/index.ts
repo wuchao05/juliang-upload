@@ -227,7 +227,7 @@ export class Logger {
    */
   public feishuUpdate(taskId: string, drama: string, success: boolean): void {
     const message = success
-      ? "飞书状态更新成功: 待上传 → 待资产化"
+      ? "飞书状态更新成功: 待上传 → 待搭建"
       : "飞书状态更新失败";
 
     if (success) {

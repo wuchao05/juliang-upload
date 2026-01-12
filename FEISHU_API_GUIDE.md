@@ -247,7 +247,7 @@ Content-Type: application/json
 ```json
 {
   "fields": {
-    "当前状态": "待资产化"
+    "当前状态": "待搭建"
   }
 }
 ```
@@ -268,7 +268,7 @@ Content-Type: application/json
     "record": {
       "record_id": "recxxxxxx",
       "fields": {
-        "当前状态": "待资产化"
+        "当前状态": "待搭建"
       }
     }
   }
@@ -284,11 +284,11 @@ public async updateRecordStatus(recordId: string, drama: string): Promise<boolea
 
     await this.request("patch", url, {
       fields: {
-        [this.config.fields.status]: "待资产化"
+        [this.config.fields.status]: "待搭建"
       }
     });
 
-    this.logger.info(`记录 ${recordId} 状态更新成功: 待上传 → 待资产化`);
+    this.logger.info(`记录 ${recordId} 状态更新成功: 待上传 → 待搭建`);
     return true;
   } catch (error) {
     this.logger.error(`更新记录失败: ${error}`);

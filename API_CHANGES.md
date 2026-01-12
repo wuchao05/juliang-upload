@@ -71,7 +71,7 @@ const url = `/apps/${app_token}/tables/${table_id}/records/${recordId}`;
 
 await request("put", url, {
   fields: {
-    当前状态: "待资产化",
+    当前状态: "待搭建",
   },
 });
 ```
@@ -84,7 +84,7 @@ const url = `/apps/${app_token}/tables/${table_id}/records/${recordId}`;
 
 await request("patch", url, {
   fields: {
-    当前状态: "待资产化",
+    当前状态: "待搭建",
   },
 });
 ```
@@ -118,7 +118,7 @@ const token = await getTenantAccessToken();
 const url = `/apps/${app_token}/tables/${table_id}/records/${recordId}`;
 const data = {
   fields: {
-    当前状态: "待资产化",
+    当前状态: "待搭建",
   },
 };
 

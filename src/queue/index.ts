@@ -306,10 +306,10 @@ export class TaskQueue {
         uploadResult.uploadedBatches
       );
 
-      // 6. 更新飞书状态为"待资产化"
+      // 6. 更新飞书状态为"待搭建"
       const updateSuccess = await feishuClient.updateRecordStatus(
         task.recordId,
-        "待资产化",
+        "待搭建",
         task.drama
       );
 
