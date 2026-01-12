@@ -28,6 +28,9 @@ export class Scheduler {
     try {
       this.logger.info('开始从飞书拉取待上传任务');
 
+      // 先清理已完成和已跳过的任务，释放队列空间
+      this.taskQueue.cleanup();
+
       const records = await this.feishuClient.getPendingRecords();
 
       if (records.length === 0) {
