@@ -35,6 +35,7 @@ export interface FeishuConfig {
  */
 export interface LocalConfig {
   rootDir: string;
+  sourceMaterialDir?: string; // 源素材目录（可选）
 }
 
 /**

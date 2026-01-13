@@ -157,7 +157,7 @@ export class TaskQueue {
     this.isProcessing = true;
     this.logger.info("任务队列开始处理");
 
-    const fileManager = createFileManager(config.local.rootDir);
+    const fileManager = createFileManager(config.local.rootDir, config.local.sourceMaterialDir);
     const douyinManager = createDouyinManager(config.douyin);
 
     while (this.isProcessing) {
@@ -321,16 +321,30 @@ export class TaskQueue {
         if (task.localPath) {
           const deleteSuccess = fileManager.deleteDirectory(task.localPath);
           if (deleteSuccess) {
-            this.logger.info(`本地素材目录已清理: ${task.localPath}`, {
+            this.logger.info(`导出目录已清理: ${task.localPath}`, {
               taskId: task.id,
               drama: task.drama,
             });
           } else {
-            this.logger.warn(`清理本地素材目录失败: ${task.localPath}`, {
+            this.logger.warn(`清理导出目录失败: ${task.localPath}`, {
               taskId: task.id,
               drama: task.drama,
             });
           }
+        }
+
+        // 8. 删除源素材目录
+        const deleteSourceSuccess = fileManager.deleteSourceMaterialDirectory(task.drama);
+        if (deleteSourceSuccess) {
+          this.logger.info(`源素材目录已清理: ${task.drama}`, {
+            taskId: task.id,
+            drama: task.drama,
+          });
+        } else {
+          this.logger.warn(`清理源素材目录失败: ${task.drama}`, {
+            taskId: task.id,
+            drama: task.drama,
+          });
         }
       } else {
         // 虽然上传成功但飞书更新失败，标记为 skipped 以便下次重试

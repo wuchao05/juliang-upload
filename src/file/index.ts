@@ -8,10 +8,12 @@ import { getLogger } from "../logger";
  */
 export class FileManager {
   private rootDir: string;
+  private sourceMaterialDir?: string;
   private logger = getLogger();
 
-  constructor(rootDir: string) {
+  constructor(rootDir: string, sourceMaterialDir?: string) {
     this.rootDir = rootDir;
+    this.sourceMaterialDir = sourceMaterialDir;
   }
 
   /**
@@ -239,11 +241,32 @@ export class FileManager {
     const dramaPath = this.buildDramaPath(date, drama);
     return this.deleteDirectory(dramaPath);
   }
+
+  /**
+   * 删除源素材目录中的剧目录
+   * @param drama 剧名
+   * @returns 是否删除成功
+   */
+  public deleteSourceMaterialDirectory(drama: string): boolean {
+    if (!this.sourceMaterialDir) {
+      this.logger.debug("未配置源素材目录，跳过删除", { drama });
+      return true;
+    }
+
+    const sourcePath = path.join(this.sourceMaterialDir, drama);
+    
+    if (!this.directoryExists(sourcePath)) {
+      this.logger.debug(`源素材目录不存在，无需删除: ${sourcePath}`, { drama });
+      return true;
+    }
+
+    return this.deleteDirectory(sourcePath);
+  }
 }
 
 /**
  * 创建文件管理器
  */
-export function createFileManager(rootDir: string): FileManager {
-  return new FileManager(rootDir);
+export function createFileManager(rootDir: string, sourceMaterialDir?: string): FileManager {
+  return new FileManager(rootDir, sourceMaterialDir);
 }
