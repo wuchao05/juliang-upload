@@ -36,6 +36,7 @@ export interface FeishuConfig {
 export interface LocalConfig {
   rootDir: string;
   sourceMaterialDir?: string; // 源素材目录（可选）
+  autoDeleteSourceMaterial?: boolean; // 是否自动删除源素材目录（默认 false）
 }
 
 /**

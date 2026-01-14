@@ -13,7 +13,9 @@
     }
   },
   "local": {
-    "rootDir": "D:\\短剧剪辑"
+    "rootDir": "D:\\短剧剪辑",
+    "sourceMaterialDir": "D:\\短剧剪辑\\源素材视频",
+    "autoDeleteSourceMaterial": false
   },
   "douyin": {
     "baseUploadUrl": "https://ad.oceanengine.com/material_center/management/video?aadvid={accountId}#source=ad_navigator"

@@ -333,15 +333,22 @@ export class TaskQueue {
           }
         }
 
-        // 8. 删除源素材目录
-        const deleteSourceSuccess = fileManager.deleteSourceMaterialDirectory(task.drama);
-        if (deleteSourceSuccess) {
-          this.logger.info(`源素材目录已清理: ${task.drama}`, {
-            taskId: task.id,
-            drama: task.drama,
-          });
+        // 8. 删除源素材目录（如果启用了自动删除）
+        if (_config.local.autoDeleteSourceMaterial) {
+          const deleteSourceSuccess = fileManager.deleteSourceMaterialDirectory(task.drama);
+          if (deleteSourceSuccess) {
+            this.logger.info(`源素材目录已清理: ${task.drama}`, {
+              taskId: task.id,
+              drama: task.drama,
+            });
+          } else {
+            this.logger.warn(`清理源素材目录失败: ${task.drama}`, {
+              taskId: task.id,
+              drama: task.drama,
+            });
+          }
         } else {
-          this.logger.warn(`清理源素材目录失败: ${task.drama}`, {
+          this.logger.debug(`未启用自动删除源素材目录，保留: ${task.drama}`, {
             taskId: task.id,
             drama: task.drama,
           });
