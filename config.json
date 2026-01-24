@@ -37,7 +37,7 @@
     }
   },
   "scheduler": {
-    "fetchIntervalMinutes": 60
+    "fetchIntervalMinutes": 40
   },
   "playwright": {
     "headless": false,
