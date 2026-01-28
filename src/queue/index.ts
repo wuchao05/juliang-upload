@@ -147,7 +147,8 @@ export class TaskQueue {
   public async startProcessing(
     config: Config,
     uploader: Uploader,
-    feishuClient: FeishuClient
+    feishuClient: FeishuClient,
+    scheduler?: any // 可选的调度器实例，用于事件回调
   ): Promise<void> {
     if (this.isProcessing) {
       this.logger.warn("任务队列已在运行中");
@@ -169,15 +170,27 @@ export class TaskQueue {
         continue;
       }
 
-      // 处理任务
-      await this.processTask(
-        task,
-        config,
-        fileManager,
-        douyinManager,
-        uploader,
-        feishuClient
-      );
+      // 通知调度器任务开始处理
+      if (scheduler) {
+        scheduler.markTaskProcessing();
+      }
+
+      // 处理任务（用 finally 确保任务完成后通知调度器）
+      try {
+        await this.processTask(
+          task,
+          config,
+          fileManager,
+          douyinManager,
+          uploader,
+          feishuClient
+        );
+      } finally {
+        // 通知调度器任务完成，触发立即查询
+        if (scheduler) {
+          await scheduler.onTaskComplete();
+        }
+      }
 
       // 任务间延迟
       await new Promise((resolve) => setTimeout(resolve, 2000));

@@ -14,6 +14,7 @@ export class Scheduler {
   private logger = getLogger();
   private isRunning: boolean = false;
   private fetchTimer: NodeJS.Timeout | null = null;
+  private isTaskProcessing: boolean = false; // 是否正在处理任务
 
   constructor(config: Config, feishuClient: FeishuClient, taskQueue: TaskQueue) {
     this.config = config;
@@ -23,8 +24,9 @@ export class Scheduler {
 
   /**
    * 从飞书拉取任务并入队
+   * @returns 拉取到的任务数量
    */
-  private async fetchAndEnqueueTasks(): Promise<void> {
+  private async fetchAndEnqueueTasks(): Promise<number> {
     try {
       this.logger.info('开始从飞书拉取待上传任务');
 
@@ -35,7 +37,7 @@ export class Scheduler {
 
       if (records.length === 0) {
         this.logger.info('没有待上传的任务');
-        return;
+        return 0;
       }
 
       // 转换为内部 Task 对象
@@ -60,37 +62,78 @@ export class Scheduler {
       this.logger.info(
         `队列状态: 总计=${stats.total}, 待处理=${stats.pending}, 运行中=${stats.running}, 已完成=${stats.completed}, 已跳过=${stats.skipped}`
       );
+
+      return addedCount;
     } catch (error) {
       this.logger.error(`拉取飞书任务失败: ${error instanceof Error ? error.message : String(error)}`);
+      return 0;
     }
   }
 
   /**
-   * 启动定时拉取
+   * 启动定时拉取（仅当查询结果为空时调用）
    */
-  private startFetching(): void {
+  private startScheduledFetching(): void {
+    // 如果已有定时器在运行，不重复启动
+    if (this.fetchTimer) {
+      return;
+    }
+
     const intervalMs = this.config.scheduler.fetchIntervalMinutes * 60 * 1000;
 
     this.logger.info(`定时拉取已启动，间隔: ${this.config.scheduler.fetchIntervalMinutes} 分钟`);
 
-    // 立即执行一次
-    this.fetchAndEnqueueTasks();
-
     // 设置定时器
-    this.fetchTimer = setInterval(() => {
-      this.fetchAndEnqueueTasks();
+    this.fetchTimer = setInterval(async () => {
+      // 如果正在处理任务，跳过本次轮询
+      if (this.isTaskProcessing) {
+        this.logger.debug('任务处理中，跳过本次轮询');
+        return;
+      }
+
+      const count = await this.fetchAndEnqueueTasks();
+
+      // 如果查询到新任务，停止定时轮询
+      if (count > 0) {
+        this.logger.info('查询到新任务，停止定时轮询，转为事件驱动模式');
+        this.stopScheduledFetching();
+      }
     }, intervalMs);
   }
 
   /**
    * 停止定时拉取
    */
-  private stopFetching(): void {
+  private stopScheduledFetching(): void {
     if (this.fetchTimer) {
       clearInterval(this.fetchTimer);
       this.fetchTimer = null;
       this.logger.info('定时拉取已停止');
     }
+  }
+
+  /**
+   * 任务完成时调用，立即查询一次
+   */
+  public async onTaskComplete(): Promise<void> {
+    this.isTaskProcessing = false;
+
+    this.logger.info('任务完成，立即查询飞书获取新任务');
+
+    const count = await this.fetchAndEnqueueTasks();
+
+    // 如果查询不到新任务，启动定时轮询
+    if (count === 0) {
+      this.logger.info('未查询到新任务，启动定时轮询模式');
+      this.startScheduledFetching();
+    }
+  }
+
+  /**
+   * 标记任务开始处理
+   */
+  public markTaskProcessing(): void {
+    this.isTaskProcessing = true;
   }
 
   /**
@@ -105,11 +148,16 @@ export class Scheduler {
     this.isRunning = true;
     this.logger.info('调度器启动');
 
-    // 启动定时拉取
-    this.startFetching();
+    // 立即查询一次
+    const count = await this.fetchAndEnqueueTasks();
 
-    // 启动队列处理
-    await this.taskQueue.startProcessing(this.config, uploader, this.feishuClient);
+    // 如果初始查询不到任务，启动定时轮询
+    if (count === 0) {
+      this.startScheduledFetching();
+    }
+
+    // 启动队列处理，传入调度器用于事件回调
+    await this.taskQueue.startProcessing(this.config, uploader, this.feishuClient, this);
   }
 
   /**
@@ -123,7 +171,7 @@ export class Scheduler {
     this.logger.info('正在停止调度器');
 
     this.isRunning = false;
-    this.stopFetching();
+    this.stopScheduledFetching();
     this.taskQueue.stop();
 
     this.logger.info('调度器已停止');
@@ -161,4 +209,3 @@ export function createScheduler(
 ): Scheduler {
   return new Scheduler(config, feishuClient, taskQueue);
 }
-
