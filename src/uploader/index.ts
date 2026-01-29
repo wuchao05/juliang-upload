@@ -308,6 +308,43 @@ export class Uploader {
             continue;
           }
 
+          // 如果进度条数量少于预期，且不是刚开始就少（说明有文件上传失败），立即取消并重试
+          const elapsedTime = Date.now() - startTime;
+          if (progressCount < files.length && elapsedTime > 20000) {
+            // 等待20秒后如果数量仍然不足，说明有文件上传失败
+            this.logger.warn(
+              `检测到进度条数量不足：${progressCount}/${files.length}，立即取消并准备重试`,
+              { taskId, drama }
+            );
+
+            // 点击取消按钮
+            try {
+              const cancelButton = page
+                .locator(this.uploaderConfig.selectors.cancelButton)
+                .first();
+              await cancelButton.waitFor({ state: "visible", timeout: 5000 });
+              await this.randomDelay(500, 1000);
+              await cancelButton.click();
+              this.logger.debug("取消按钮点击成功", {
+                taskId,
+                drama,
+              });
+              await this.randomDelay(2000, 3000);
+            } catch (cancelError) {
+              this.logger.error(
+                `点击取消按钮失败: ${
+                  cancelError instanceof Error
+                    ? cancelError.message
+                    : String(cancelError)
+                }`,
+                { taskId, drama }
+              );
+            }
+
+            // 返回不足额状态，让外层重试
+            return { success: false, successCount: progressCount };
+          }
+
           this.logger.debug(
             `找到 ${progressCount} 个进度条（期望 ${files.length} 个）`,
             { taskId, drama }
