@@ -290,7 +290,6 @@ export class Uploader {
       const maxWaitTime = 600000; // 10分钟
       const startTime = Date.now();
       let finalSuccessCount = 0;
-      let lastProgressCount = 0; // 记录上次的进度条数量，用于检测是否有减少
 
       // 先等待一下，让文件开始上传和进度条出现
       await this.randomDelay(5000, 6000);
