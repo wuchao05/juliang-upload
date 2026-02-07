@@ -155,7 +155,13 @@ export class FeishuClient {
         .map((record) => this.parseRecord(record))
         .filter((r) => r !== null) as FeishuRecordData[];
 
-      this.logger.info(`从飞书获取到 ${records.length} 条待上传记录`);
+      // 按日期升序排序（最早的日期优先上传）
+      records.sort((a, b) => {
+        // 日期格式为 YYYY-MM-DD，可以直接字符串比较
+        return a.date.localeCompare(b.date);
+      });
+
+      this.logger.info(`从飞书获取到 ${records.length} 条待上传记录（已按日期升序排序）`);
 
       return records;
     } catch (error) {
