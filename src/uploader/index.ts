@@ -308,12 +308,37 @@ export class Uploader {
             continue;
           }
 
+          // 检测包含"请调整后再上传"错误的素材数量
+          const errorElements = page.locator(
+            ".material-center-v2-oc-typography-value-int"
+          );
+          const errorElementCount = await errorElements.count();
+          let skippedCount = 0;
+
+          for (let i = 0; i < errorElementCount; i++) {
+            const element = errorElements.nth(i);
+            const text = await element.textContent();
+            if (text && text.includes("请调整后再上传")) {
+              skippedCount++;
+            }
+          }
+
+          if (skippedCount > 0) {
+            this.logger.debug(
+              `检测到 ${skippedCount} 个素材需要调整，将从预期数量中排除`,
+              { taskId, drama }
+            );
+          }
+
+          // 计算实际期望的进度条数量（排除需要调整的素材）
+          const expectedCount = files.length - skippedCount;
+
           // 如果进度条数量少于预期，且不是刚开始就少（说明有文件上传失败），立即取消并重试
           const elapsedTime = Date.now() - startTime;
-          if (progressCount < files.length && elapsedTime > 20000) {
+          if (progressCount < expectedCount && elapsedTime > 20000) {
             // 等待20秒后如果数量仍然不足，说明有文件上传失败
             this.logger.warn(
-              `检测到进度条数量不足：${progressCount}/${files.length}，立即取消并准备重试`,
+              `检测到进度条数量不足：${progressCount}/${expectedCount}（原始 ${files.length} 个，排除 ${skippedCount} 个需调整），立即取消并准备重试`,
               { taskId, drama }
             );
 
@@ -346,7 +371,7 @@ export class Uploader {
           }
 
           this.logger.debug(
-            `找到 ${progressCount} 个进度条（期望 ${files.length} 个）`,
+            `找到 ${progressCount} 个进度条（期望 ${expectedCount} 个，原始 ${files.length} 个，排除 ${skippedCount} 个需调整）`,
             { taskId, drama }
           );
 
@@ -377,10 +402,10 @@ export class Uploader {
           if (successCount === progressCount && successCount > 0) {
             finalSuccessCount = successCount;
 
-            if (progressCount < files.length) {
-              // 进度条数量少于预期，说明有文件上传失败
+            if (progressCount < expectedCount) {
+              // 进度条数量少于预期（已排除需调整的素材），说明有文件上传失败
               this.logger.warn(
-                `上传完成但数量不足：${progressCount}/${files.length}（第 ${
+                `上传完成但数量不足：${progressCount}/${expectedCount}（原始 ${files.length} 个，排除 ${skippedCount} 个需调整，第 ${
                   retryCount + 1
                 } 次尝试）`,
                 { taskId, drama }
@@ -413,11 +438,18 @@ export class Uploader {
               // 返回不足额状态，让外层决定
               return { success: false, successCount: finalSuccessCount };
             } else {
-              // 进度条数量符合预期，全部上传成功
-              this.logger.debug("所有素材上传完成（所有进度条显示成功状态）", {
-                taskId,
-                drama,
-              });
+              // 进度条数量符合预期（排除需调整的素材后），上传成功
+              if (skippedCount > 0) {
+                this.logger.info(
+                  `上传完成：成功 ${successCount} 个，跳过 ${skippedCount} 个需调整的素材`,
+                  { taskId, drama }
+                );
+              } else {
+                this.logger.debug("所有素材上传完成（所有进度条显示成功状态）", {
+                  taskId,
+                  drama,
+                });
+              }
 
               this.logger.debug("所有文件上传完成", { taskId, drama });
               await this.randomDelay(1000, 2000);
