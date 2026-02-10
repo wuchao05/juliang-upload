@@ -308,7 +308,7 @@ export class Uploader {
             continue;
           }
 
-          // 检测包含"请调整后再上传"错误的素材数量
+          // 检测包含错误信息的素材数量（需要跳过的）
           const errorElements = page.locator(
             ".material-center-v2-oc-typography-value-int"
           );
@@ -318,14 +318,17 @@ export class Uploader {
           for (let i = 0; i < errorElementCount; i++) {
             const element = errorElements.nth(i);
             const text = await element.textContent();
-            if (text && text.includes("请调整后再上传")) {
+            if (
+              text &&
+              (text.includes("请调整后再上传") || text.includes("上传失败"))
+            ) {
               skippedCount++;
             }
           }
 
           if (skippedCount > 0) {
             this.logger.debug(
-              `检测到 ${skippedCount} 个素材需要调整，将从预期数量中排除`,
+              `检测到 ${skippedCount} 个素材有错误（需调整或上传失败），将从预期数量中排除`,
               { taskId, drama }
             );
           }
@@ -441,7 +444,7 @@ export class Uploader {
               // 进度条数量符合预期（排除需调整的素材后），上传成功
               if (skippedCount > 0) {
                 this.logger.info(
-                  `上传完成：成功 ${successCount} 个，跳过 ${skippedCount} 个需调整的素材`,
+                  `上传完成：成功 ${successCount} 个，跳过 ${skippedCount} 个有错误的素材`,
                   { taskId, drama }
                 );
               } else {
