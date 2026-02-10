@@ -320,7 +320,9 @@ export class Uploader {
             const text = await element.textContent();
             if (
               text &&
-              (text.includes("请调整后再上传") || text.includes("上传失败"))
+              (text.includes("请调整后再上传") ||
+                text.includes("上传失败") ||
+                text.includes("获取大视频封面失败"))
             ) {
               skippedCount++;
             }
